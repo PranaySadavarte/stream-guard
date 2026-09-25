@@ -24,3 +24,15 @@ through the actual small English Vosk model: zero blocked terms in clean speech;
 in the repeated fixture. First-hypothesis stream-relative delays ranged from
 744 to 1395 ms in this tiny corpus. These are not sufficient p99 population
 measurements and do not establish accuracy for accents, noise or live speech.
+
+## M4 — Live waveform censorship
+The detector worker publishes sanitized immutable blocks. The output callback
+has no access to the raw pending buffer and emits silence whenever a matching
+sanitized block misses its release deadline. Detector queue overflow, errors,
+invalid coverage and audio discontinuity cannot enable raw pass-through.
+
+64 tests passed. Actual Vosk fixture replay through the live release algorithm
+found 0/1/2 terms for clean/single/repeated fixtures, no controller errors at
+3000 ms. Finalization delays also caused protective muting; this is visible in
+telemetry rather than disguised as full uninterrupted protection. Long sentences
+may lose substantial speech; the small Vosk backend is an MVP baseline.

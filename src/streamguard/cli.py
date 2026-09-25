@@ -10,6 +10,16 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="StreamGuard audio-plumbing diagnostic (NO CENSORSHIP)")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("devices", help="list input/output device IDs")
+    live = commands.add_parser('live', help='delayed, fail-closed local profanity filter')
+    live.add_argument('--input', type=int, required=True)
+    live.add_argument('--output', type=int, required=True)
+    live.add_argument('--model', required=True)
+    live.add_argument('--delay-ms', type=float, default=1500)
+    live.add_argument('--sample-rate', type=int, default=48000)
+    live.add_argument('--output-channels', type=int, choices=[1,2], default=2)
+    live.add_argument('--mode', choices=['beep','silence'], default='beep')
+    live.add_argument('--terms')
+    live.add_argument('--seconds', type=int, default=60)
     observe = commands.add_parser('detect', help='live local recognition; no audio output')
     observe.add_argument('--input', type=int, required=True)
     observe.add_argument('--model', required=True)
@@ -35,6 +45,30 @@ def main(argv=None):
     run.add_argument("--allow-unprotected-monitor", action="store_true",
                      help="acknowledge that diagnostic audio is uncensored")
     args = parser.parse_args(argv)
+    if args.command == 'live':
+        from pathlib import Path
+        from .pipeline.controller import LiveController
+        from .audio.censor import CensorSettings
+        from .detection.profanity import ProfanityDictionary
+        from .detection.vosk_backend import VoskDetector
+        if args.seconds <= 0: parser.error('seconds must be positive')
+        dictionary = ProfanityDictionary(Path(args.terms).read_text(encoding='utf-8').splitlines()) if args.terms else ProfanityDictionary()
+        settings = AudioSettings(args.input,args.output, sample_rate=args.sample_rate,
+                                 delay_ms=args.delay_ms,output_channels=args.output_channels)
+        controller = LiveController(settings,VoskDetector(args.model),dictionary,CensorSettings(mode=args.mode))
+        try:
+            controller.start()
+            deadline = time.monotonic()+args.seconds
+            while time.monotonic() < deadline:
+                time.sleep(.25)
+                status = controller.snapshot()
+                print(json.dumps(status), flush=True)
+                if status['error']: return 1
+            return 0
+        except KeyboardInterrupt:
+            return 130
+        finally:
+            controller.close()
     if args.command == 'detect':
         from .detection.observe import observe
         from .detection.vosk_backend import VoskDetector
