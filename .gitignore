@@ -11,3 +11,4 @@ models/
 *.zip
 *.spec
 settings.json
+setup/

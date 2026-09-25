@@ -16,6 +16,7 @@ build = ["pyinstaller>=6,<7"]
 
 [project.scripts]
 streamguard = "streamguard.cli:main"
+streamguard-gui = "streamguard.ui.main_window:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

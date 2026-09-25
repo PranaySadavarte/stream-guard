@@ -10,6 +10,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="StreamGuard audio-plumbing diagnostic (NO CENSORSHIP)")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("devices", help="list input/output device IDs")
+    commands.add_parser('gui', help='launch desktop Sponsor Safe Mode controls')
     commands.add_parser('routing-check', help='check virtual cable endpoints for OBS')
     live = commands.add_parser('live', help='delayed, fail-closed local profanity filter')
     live.add_argument('--input', type=int, required=True)
@@ -46,6 +47,9 @@ def main(argv=None):
     run.add_argument("--allow-unprotected-monitor", action="store_true",
                      help="acknowledge that diagnostic audio is uncensored")
     args = parser.parse_args(argv)
+    if args.command == 'gui':
+        from .ui.main_window import main as gui_main
+        return gui_main()
     if args.command == 'routing-check':
         from .audio.devices import routing_report
         report = routing_report()
