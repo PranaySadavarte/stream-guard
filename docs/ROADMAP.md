@@ -3,9 +3,10 @@
 - [x] Inspect workspace: empty project mirror; no Git repository or source files.
 - [x] Establish architecture and milestone sequence.
 - [x] M1 implementation: sample timeline, bounded ring, delayed duplex diagnostic.
-- [ ] M1 automated tests and measured simulation results.
+- [x] M1 automated tests and measured simulation results: 39 passed.
+- [x] M1 Anker C300 → Bose short hardware smoke test (15 seconds, no reported faults).
 - [ ] M1 physical microphone/headphone stability validation.
-- [ ] M1 push to confirmed GitHub repository.
+- [x] M1 implementation pushed: `d453050`, PR #2, `feature/audio-capture`.
 - [ ] M2 offline censorship: dictionary/custom words, timestamp events, padding,
       beep/silence replacement, synthetic WAV fixtures and boundary tests.
 - [ ] M3 detector interface and streaming backend; confidence, timestamp extraction,
@@ -18,5 +19,6 @@
 
 Every milestone requires relevant tests, a focused commit, and a push before
 the next major milestone. Hardware success must be recorded separately from
-simulation. GitHub URL is pending; local roadmap serves as issue tracking until
-the target repository is confirmed.
+simulation. Repository: PranaySadavarte/stream-guard; tracking epic: GitHub issue #1.
+This roadmap tracks detailed acceptance alongside the epic. Physical long-run
+stability and listening acceptance remain pending despite the successful smoke test.

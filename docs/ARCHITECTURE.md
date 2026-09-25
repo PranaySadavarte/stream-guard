@@ -15,7 +15,10 @@ NumPy views and Python counters still incur interpreter overhead; this is a
 prototype, not a hard real-time guarantee.
 
 All seconds/sample conversion belongs to Timeline. Absolute sample positions
-start at zero; frame metadata uses PortAudio input ADC time, not wall-clock time.
+start at zero; frame metadata uses PortAudio input ADC time when valid. Some MME
+drivers return a constant ADC value: in that case use host stream time minus the
+reported input latency, explicitly marked as estimated, and suppress measured
+device-path latency. Sample-relative ordering remains independent of this clock.
 Only the latest frame stamp is retained in this diagnostic. Future detector queue
 entries must carry their own stamp, including session identity after restart.
 End-exclusive word intervals round outward and apply padding centrally.
