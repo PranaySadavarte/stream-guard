@@ -10,6 +10,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="StreamGuard audio-plumbing diagnostic (NO CENSORSHIP)")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("devices", help="list input/output device IDs")
+    observe = commands.add_parser('detect', help='live local recognition; no audio output')
+    observe.add_argument('--input', type=int, required=True)
+    observe.add_argument('--model', required=True)
+    observe.add_argument('--seconds', type=int, default=15)
     offline = commands.add_parser('censor-file', help='replace prohibited word samples in a PCM16 WAV')
     offline.add_argument('source')
     offline.add_argument('destination')
@@ -31,6 +35,12 @@ def main(argv=None):
     run.add_argument("--allow-unprotected-monitor", action="store_true",
                      help="acknowledge that diagnostic audio is uncensored")
     args = parser.parse_args(argv)
+    if args.command == 'detect':
+        from .detection.observe import observe
+        from .detection.vosk_backend import VoskDetector
+        if args.seconds <= 0: parser.error('seconds must be positive')
+        observe(VoskDetector(args.model), args.input, seconds=args.seconds)
+        return 0
     if args.command == 'censor-file':
         from pathlib import Path
         from .offline import censor_file, load_words
