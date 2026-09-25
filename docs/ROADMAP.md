@@ -6,7 +6,7 @@
 - [x] M1 automated tests and measured simulation results: 39 passed.
 - [x] M1 Anker C300 → Bose short hardware smoke test (15 seconds, no reported faults).
 - [ ] M1 physical microphone/headphone stability validation.
-- [ ] M1 implementation push to confirmed GitHub repository.
+- [x] M1 implementation pushed: `d453050`, PR #2, `feature/audio-capture`.
 - [ ] M2 offline censorship: dictionary/custom words, timestamp events, padding,
       beep/silence replacement, synthetic WAV fixtures and boundary tests.
 - [ ] M3 detector interface and streaming backend; confidence, timestamp extraction,
