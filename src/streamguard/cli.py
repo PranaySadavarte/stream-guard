@@ -10,6 +10,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="StreamGuard audio-plumbing diagnostic (NO CENSORSHIP)")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("devices", help="list input/output device IDs")
+    offline = commands.add_parser('censor-file', help='replace prohibited word samples in a PCM16 WAV')
+    offline.add_argument('source')
+    offline.add_argument('destination')
+    evidence = offline.add_mutually_exclusive_group(required=True)
+    evidence.add_argument('--words-json', help='annotated Word records (text/start/end/confidence)')
+    evidence.add_argument('--model', help='local Vosk model directory')
+    offline.add_argument('--mode', choices=['beep', 'silence'], default='beep')
+    offline.add_argument('--terms', help='UTF-8 file, one word per line')
     run = commands.add_parser("diagnose", help="unprotected delayed monitoring; keep OBS closed")
     run.add_argument("--input", type=int, required=True)
     run.add_argument("--output", type=int, required=True)
@@ -23,6 +31,24 @@ def main(argv=None):
     run.add_argument("--allow-unprotected-monitor", action="store_true",
                      help="acknowledge that diagnostic audio is uncensored")
     args = parser.parse_args(argv)
+    if args.command == 'censor-file':
+        from pathlib import Path
+        from .offline import censor_file, load_words
+        from .audio.censor import CensorSettings
+        from .detection.profanity import ProfanityDictionary
+        try:
+            detector = None
+            if args.model:
+                from .detection.vosk_backend import VoskDetector
+                detector = VoskDetector(args.model)
+            terms = ProfanityDictionary(Path(args.terms).read_text(encoding='utf-8').splitlines()) if args.terms else None
+            spans = censor_file(args.source, args.destination, terms, CensorSettings(mode=args.mode),
+                                load_words(args.words_json) if args.words_json else None, detector)
+            print(json.dumps({'output': args.destination, 'detections': len(spans)}))
+            return 0
+        except (ValueError, OSError, RuntimeError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
     import sounddevice as sd
     if args.command == "devices":
         print(sd.query_devices())
