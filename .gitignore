@@ -7,3 +7,8 @@ dist/
 .env
 *.log
 recordings/
+models/
+*.zip
+*.spec
+settings.json
+setup/
