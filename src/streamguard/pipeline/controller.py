@@ -82,7 +82,7 @@ class LiveController:
                     continue
                 audio, start = item
                 for position, sanitized in self.engine.process(start, audio,
-                        self.playback_sample, self.captured):
+                        self.playback_sample, lambda:self.captured):
                     # Immutable publication: callback holds its own tuple reference.
                     self.ready[(position//self.block) % self.capacity] = (position, sanitized)
                 self.stats = self.engine.snapshot()

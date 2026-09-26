@@ -1,5 +1,46 @@
 # Verification
 
+## Full implementation results — 2026-09-25 UTC
+
+- 73 deterministic/UI/concurrency tests passed, 0 failed (1.16 s).
+- Actual Vosk small English model on locally generated Windows speech: clean
+  fixture 0 detections, single profanity fixture 1, repeated fixture 2. Offline
+  censored WAVs and live-algorithm replay WAVs were generated locally.
+- Stream-relative first-hypothesis latency on the tiny corpus: approximately
+  670–1395 ms. This is not a statistically valid general p99 or human-voice accuracy
+  measurement. Model SHA256: `30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498`.
+- At 3000 ms, replay preserved 100% of active clean-fixture samples. Other fixture
+  changes include both expected censor spans and protective muting. The repeated
+  fixture exposed the cost of late endpoint finalization; do not interpret every
+  changed sample as successfully precise censorship.
+- 30-second actual Anker C300 → Bose run with the local ASR worker: no controller
+  fault or dropped blocks; processing p50 0.372 ms, p95 4.910 ms, p99 20.727 ms per
+  20 ms block. No blocked words were spoken/detected in that smoke run, so its
+  detection-latency distribution is unavailable. Final queue depth was 0.
+- At 3000 ms the hardware run muted 12.84 s and released 14.16 s after initial
+  delay. This includes ambient/silent audio and demonstrates finalization-related
+  muting; it is not a claim that 12.84 s of human speech was lost. Callback load was
+  ~0.32% of its budget. Full-process CPU/memory and acoustic latency are unmeasured.
+- Accelerated 600-second whole release-pipeline test with a test-only immediate
+  detector: zero faults and zero muted samples after startup, bounded pending
+  state (max 8 blocks), 129 output slots and 64,000 bytes of capture storage.
+  Wall time 1.80 s. This is not a 10-minute real-device soak or ASR benchmark.
+- UI was rendered and visually checked; asynchronous start/stop and saved settings
+  were tested. Windows portable packaging was built; final executable smoke results
+  are recorded in the milestone log.
+- Packaged executable smoke test passed after removing an incompatible collected
+  ICU DLL: Qt window initialization and actual bundled Vosk PCM inference succeeded.
+- Real VB-CABLE → OBS recording, listening, accents/noise, long-run drift and
+  production protection acceptance remain open. Official signed driver and
+  isolated portable OBS downloads are prepared locally; no public broadcast ran.
+
+### Reproduce
+`python -m pytest`, then `tools/generate_speech.ps1`, `tools/verify_speech.py`,
+`tools/replay_live.py`, and `tools/stress_pipeline.py`. Hardware scripts require
+deliberate device selection and access outside a sandbox that blocks audio APIs.
+Do not conflate ASR processing percentiles, first-detection latency, finalization
+age, configured buffer delay and acoustic output latency.
+
 ## Automated
 Run `python -m pytest` after installing `.[dev]`. No hardware, model, network,
 microphone access, or speech recordings are needed for the unit/simulation suite.

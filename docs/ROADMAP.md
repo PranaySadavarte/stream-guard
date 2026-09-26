@@ -1,24 +1,25 @@
-# MVP roadmap
+# MVP roadmap and acceptance
 
-- [x] Inspect workspace: empty project mirror; no Git repository or source files.
-- [x] Establish architecture and milestone sequence.
-- [x] M1 implementation: sample timeline, bounded ring, delayed duplex diagnostic.
-- [x] M1 automated tests and measured simulation results: 39 passed.
-- [x] M1 Anker C300 → Bose short hardware smoke test (15 seconds, no reported faults).
-- [ ] M1 physical microphone/headphone stability validation.
-- [x] M1 implementation pushed: `d453050`, PR #2, `feature/audio-capture`.
-- [ ] M2 offline censorship: dictionary/custom words, timestamp events, padding,
-      beep/silence replacement, synthetic WAV fixtures and boundary tests.
-- [ ] M3 detector interface and streaming backend; confidence, timestamp extraction,
-      partial/final revision handling; measure detection p50/p95/p99.
-- [ ] M4 live censorship: bounded detector queue, immutable sample spans, censored
-      release, fail-closed output when detection coverage misses release deadline.
-- [ ] M5 virtual audio routing, OBS setup, local recording and leak inspection.
-- [ ] M6 desktop UI: devices, modes, terms, padding, event history, health.
-- [ ] M7 load/reliability tests, latency-based delay tuning and release packaging.
+Implementation and external acceptance are separate. Checked code milestones do
+not imply a verified broadcast or guaranteed ASR accuracy.
 
-Every milestone requires relevant tests, a focused commit, and a push before
-the next major milestone. Hardware success must be recorded separately from
-simulation. Repository: PranaySadavarte/stream-guard; tracking epic: GitHub issue #1.
-This roadmap tracks detailed acceptance alongside the epic. Physical long-run
-stability and listening acceptance remain pending despite the successful smoke test.
+- [x] M1: capture, bounded ring, sample timeline, delayed diagnostic output.
+- [x] M2: offline WAV replacement, dictionary, custom terms, padding and fades.
+- [x] M3: actual local Vosk adapter, timestamps, generated speech validation.
+- [x] M4: live censorship, worker isolation, finalized release, fail-closed mute.
+- [x] M5 code: virtual-device selection, readiness check and OBS setup guide.
+- [ ] M5 acceptance: install VB-CABLE/restart, record actual output in OBS,
+      inspect syllable leakage, crackle, intelligibility and audiovisual sync.
+- [x] M6: desktop controls, settings, event history and rotating logs.
+- [x] M7 code: overload/crash/concurrency tests, percentiles and Windows build.
+- [ ] M7 acceptance: hardware soak, larger voice/noise corpus, useful population
+      p99, latency tuning and false-negative assessment.
+
+The conservative Vosk backend can pass short clean speech intact at 3 seconds,
+but longer utterances may be muted at the start. Reliable low-delay continuous
+speech needs a faster finalization backend or separately validated overlapping
+recognition. Do not hide this tradeoff by releasing unfinalized raw audio.
+
+Repository: PranaySadavarte/stream-guard. Epic #1 tracks full acceptance. Focused
+commits are pushed at each implementation milestone. Enclosing project sources
+remain untouched.

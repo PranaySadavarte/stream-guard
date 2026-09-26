@@ -1,54 +1,63 @@
-# Architecture
+# Stream-safe audio architecture
 
-Target path: physical microphone → timestamped PCM → bounded delay ring →
-censored sample release → virtual playback device → OBS capture. Optional local
-monitoring stays on the hardware's direct path and is not delayed.
+Physical mic → capture mailbox → detector worker + pending PCM → sample
+replacement → immutable sanitized blocks → delayed output → virtual cable → OBS.
+Direct hardware monitoring stays outside the audience path.
 
-## Implemented in M1
+## Ownership and scheduling
 
-Float32 mono PCM at a configurable device-supported sample rate. A full-duplex
-PortAudio callback owns a preallocated ring and scratch block. It writes captured
-audio and reads equally sized delayed blocks into the supplied output array.
-The ring starts with exactly `delay_samples` zeros. Its capacity is delay plus
-one maximum callback block; no session-length storage grows. Callback-sized
-NumPy views and Python counters still incur interpreter overhead; this is a
-prototype, not a hard real-time guarantee.
+The PortAudio callback owns capture indices. It copies input to a preallocated
+single-producer/consumer mailbox, then requests sanitized audio at
+`captured_index - delay_samples`. Non-block-aligned delays split reads across
+two output blocks. It performs no ASR, logging, file access, locks or queue waits.
 
-All seconds/sample conversion belongs to Timeline. Absolute sample positions
-start at zero; frame metadata uses PortAudio input ADC time when valid. Some MME
-drivers return a constant ADC value: in that case use host stream time minus the
-reported input latency, explicitly marked as estimated, and suppress measured
-device-path latency. Sample-relative ordering remains independent of this clock.
-Only the latest frame stamp is retained in this diagnostic. Future detector queue
-entries must carry their own stamp, including session identity after restart.
-End-exclusive word intervals round outward and apply padding centrally.
+The worker copies a capture slot before releasing it and owns mutable pending
+audio, detector state, spans and deduplication. Sanitized arrays are published as
+immutable `(absolute_sample_index, array)` tuples in bounded slots. The callback
+retains a tuple reference while copying; slot replacement cannot mutate its array.
+Ordinary GIL CPython 3.11+ is required; free-threaded builds are rejected. Python
+and NumPy still have scheduling/allocation overhead: this is not hard real-time.
 
-The main thread handles control and JSON telemetry. The callback does no logging,
-ASR, file I/O, blocking queue operations or lock acquisition. Status/discontinuity
-errors latch mute; main-thread polling stops the stream. Counts reflect reported
-overflow/underflow events, not an invented number of lost samples. Stopping aborts
-pending playback. Snapshots are best-effort observations, not atomic transactions.
+The GUI polls published dictionaries; model loading/stopping run on background
+threads. Logs rotate, UI history is capped at 100 and metric windows at 2000.
+Capture capacity is about one second. Output/pending memory scales with delay.
+Event overflow faults rather than allowing unbounded memory growth.
 
-Reference: [sounddevice stream callback contract](https://python-sounddevice.readthedocs.io/en/latest/api/streams.html).
+## Timeline and detector contract
 
-## Planned worker boundaries
+Timeline centralizes seconds/sample conversion, outward rounding and padding.
+Ranges are half-open absolute sample intervals from session start. Restart
+constructs fresh buffers and detector. Invalid MME ADC times do not influence
+sample ordering; device timing is separate from the configured sample delay.
 
-Capture publishes copies into a bounded detector input queue without waiting.
-The detector worker owns the ASR instance and produces typed word events with
-session-relative sample spans and confidence. ASR adapters share start/process/
-poll/stop behavior, with explicit timestamp origin and finalized coverage.
-Detector partials may arrive early but must not certify an entire region safe.
+SpeechDetector provides start/process_audio/finish/stop. Detection contains
+Word(text,start,end,confidence) and monotonic `finalized_through` sample coverage.
+A backend must never revise finalized audio. Vosk partials add conservative spans
+but cannot authorize release; endpoint-final results can. Span revisions are
+unioned. Repeated words with separate raw intervals remain separate events even
+when their padding overlaps.
 
-Playback owns censorship intervals and reads only audio eligible for release.
-Beep or silence replaces original PCM completely, including fade boundaries;
-it never mixes original speech beneath the tone. Event overlap/revision handling
-must be deterministic. Late detection cannot repair already-played audio.
+The worker retains pre-padding plus fade lookahead before authorizing output.
+Beep/silence fully replaces original PCM within padded spans. Tone phase and
+envelope use absolute indices for chunk invariance. Tone fades never contain
+original speech; surrounding speech tapers outside the padded interval.
 
-Future live release must fail closed when detector coverage misses the release
-deadline, queues drop audio, or a backend fails. Display PROTECTION AT RISK with
-headroom, latency, late-event and overflow counts. Even timely ASR may miss words;
-successful inference is not proof of clean speech.
+## Deadlines and failures
 
-GUI polls immutable/bounded status snapshots on its own event loop. It never
-invokes inference from the audio callback. Hardware clock drift and duplex host
-compatibility require real-device measurement before OBS routing is accepted.
+Missing sanitized output is silence. Raw microphone audio is never a fallback.
+Expired pending blocks are discarded; late results cannot restore played audio.
+Queue overflow, device errors, exceptions or invalid coverage latch a fault until
+restart. Stop aborts playback and signals the worker. Stuck workers are reported
+and not reused.
+
+This protects against pipeline failure, not ASR false negatives: a model can
+finalize an incorrect transcript. Continuous speech may not finalize within the
+selected delay, causing substantial muting. UI state and muted-duration counters
+expose this tradeoff.
+
+Deterministic tests prove sample/release invariants. Actual Vosk TTS replay tests
+a tiny controlled corpus. Device smoke tests verify callback health. Neither
+replaces listening, diverse voices/noise or physical OBS acceptance.
+
+References: [sounddevice callback contract](https://python-sounddevice.readthedocs.io/en/latest/api/streams.html),
+[Vosk Python implementation](https://github.com/alphacep/vosk-api/blob/master/python/vosk/__init__.py).

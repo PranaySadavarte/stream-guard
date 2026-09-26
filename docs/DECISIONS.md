@@ -1,5 +1,20 @@
 # Engineering decisions
 
+## ADR 006 — Conservative local Vosk MVP
+Vosk provides CPU-friendly streaming word timestamps without audio upload. Only
+endpoint-finalized coverage authorizes clean release. Partials can add censor
+spans but cannot prove a region clean. Deadline misses emit silence, never raw
+pass-through. This sacrifices uninterrupted speech when finalization is late.
+Known ASR false negatives remain a product limitation; no absolute protection
+claim is made. A faster adapter may be added behind the same finalized-coverage
+contract after independent validation.
+
+## ADR 007 — PySide6 and portable Windows packaging
+PySide6 keeps the desktop interface native and separates controls from audio and
+inference workers. Portable packaging avoids requiring Python at runtime. Models
+are user-selected external assets. Driver installation and restart remain explicit
+operating-system setup steps, outside app start/stop.
+
 ## ADR 001 — Python prototype
 Python/NumPy/PortAudio reduce iteration time and keep PCM manipulation testable.
 Callback work is bounded; ASR will be separated. Native processing remains an

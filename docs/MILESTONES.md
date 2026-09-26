@@ -50,3 +50,18 @@ and atomic settings persistence. Model startup and stopping run off the GUI
 thread. Settings are locked during a session. Window close stops audio first.
 66 tests passed, including UI validation/persistence; the stopped UI was rendered
 and visually inspected. No microphone capture is performed by UI screenshot tests.
+
+## M7 — Reliability, performance and packaging
+73 tests passed. Added concurrent mailbox load, detector crashes, finalized
+coverage violations, repeated nearby detections, stop muting and asynchronous GUI
+start/stop tests. A ten-minute accelerated sample workload completed with bounded
+state and no muted samples after startup using a test-only immediate detector.
+Actual 30-second ASR/device smoke completed without dropped blocks or fault;
+Vosk finalization caused visible protective silence. Full details are in TESTING.
+Windows executable packaging and a no-capture packaged Qt/Vosk smoke test are
+provided. Physical OBS and long-run/listening acceptance remain unchecked.
+
+Packaged executable smoke test passed: Qt loaded, the window initialized, and
+bundled Vosk processed PCM using the downloaded model. Fixed a packaging-specific
+ICU DLL conflict: Qt uses the supported Windows 10/11 system ICU API; an unrelated
+Python-runtime ICU with renamed exports must not shadow it in the app folder.

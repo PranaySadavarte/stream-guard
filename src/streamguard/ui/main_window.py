@@ -43,6 +43,7 @@ class MainWindow(QMainWindow):
         self.task = None
         self.task_result = None
         self.last_event = 0
+        self.last_log_time = 0
         self.closing = False
         container=QWidget(); self.setCentralWidget(container)
         layout=QVBoxLayout(container); layout.setContentsMargins(24,20,24,20); layout.setSpacing(12)
@@ -52,7 +53,7 @@ class MainWindow(QMainWindow):
         notice=QLabel('Only the audience path is delayed. Unfinished recognition is muted. Speech recognition can miss words.')
         notice.setWordWrap(True); layout.addWidget(notice)
         columns=QHBoxLayout(); layout.addLayout(columns)
-        self.routing=QGroupBox('Audio & recognition'); form=QFormLayout(self.routing); columns.addWidget(self.routing,1)
+        self.routing=QGroupBox('Audio and recognition'); form=QFormLayout(self.routing); columns.addWidget(self.routing,1)
         self.input=QComboBox(); self.output=QComboBox()
         for combo in (self.input,self.output):
             combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
@@ -190,6 +191,9 @@ class MainWindow(QMainWindow):
                 else:self.close()
         if not self.controller:return
         status=self.controller.snapshot();self.status.setText(status['state'])
+        if time.monotonic()-self.last_log_time>=1:
+            self.last_log_time=time.monotonic()
+            self.logger.info(json.dumps({k:v for k,v in status.items() if k!='events'}))
         latency=status['detection_latency_ms'];p99=f"{latency['p99']:.0f} ms" if latency else '—'
         self.metrics.setText(f"Detected {status['detected']}  •  Muted {status['muted_ms']/1000:.1f} s  •  Queue {status['queue_depth']}  •  Headroom {status['headroom_ms']:.0f} ms  •  Detection p99 {p99}")
         for event in status['events']:
