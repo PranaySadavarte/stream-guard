@@ -21,6 +21,8 @@ class CensorEngine:
         self.detection_ms = deque(maxlen=2000)
         self.release_age_ms = deque(maxlen=2000)
         self._seen = {}
+        self._history = deque(maxlen=4096)
+        self._history_keys = set()
 
     def process(self, start, audio, playback_sample, captured_sample):
         if start != self.processed:
@@ -37,7 +39,9 @@ class CensorEngine:
         for word in result.words:
             if not self.dictionary.matches(word.text): continue
             span = word_span(word, self.rate, self.censor)
-            if span.end <= playback_sample: continue
+            fingerprint = (word.text, round(word.start, 2))
+            if span.end <= playback_sample and fingerprint in self._history_keys:
+                continue
             # Union revisions, including earlier/later boundaries, until expired.
             key = next((key for key, old in self._seen.items()
                         if old.text == word.text and old.start < word.end and word.start < old.end), None)
@@ -56,6 +60,11 @@ class CensorEngine:
                                     'confidence':word.confidence, 'late':is_late,
                                     'latency_ms':latency, 'timestamp':time.time()})
             self._seen[key] = word
+            if fingerprint not in self._history_keys:
+                if len(self._history) == self._history.maxlen:
+                    self._history_keys.discard(self._history[0])
+                self._history.append(fingerprint)
+                self._history_keys.add(fingerprint)
             self.spans.append(span)
         self._seen = {k:v for k,v in self._seen.items()
                       if (v.end+self.censor.after_ms/1000)*self.rate > playback_sample}

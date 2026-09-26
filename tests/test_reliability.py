@@ -78,3 +78,13 @@ def test_stop_prevents_cached_audio_release():
     output=np.ones((960,2),dtype=np.float32)
     controller.callback(np.ones((960,1),dtype=np.float32),output,960,None,False)
     assert not np.any(output)
+
+
+def test_fully_expired_first_detection_is_counted_as_late_once():
+    class Late:
+        def process_audio(self,a):return Detection((Word('shit',.1,.2),),0)
+    engine=CensorEngine(16000,320,8000,Late(),ProfanityDictionary(),CensorSettings())
+    engine.process(0,np.zeros(320),8000,16000)
+    engine.process(320,np.zeros(320),8320,16320)
+    assert engine.detected==1 and engine.late==1
+    assert engine.events[0]['late']

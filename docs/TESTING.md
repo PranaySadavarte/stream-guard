@@ -2,7 +2,8 @@
 
 ## Full implementation results — 2026-09-25 UTC
 
-- 73 deterministic/UI/concurrency tests passed, 0 failed (1.16 s).
+- 74 deterministic/UI/concurrency tests passed, 0 failed. Includes fully expired
+  first detections counted as late once, rather than omitted from telemetry.
 - Actual Vosk small English model on locally generated Windows speech: clean
   fixture 0 detections, single profanity fixture 1, repeated fixture 2. Offline
   censored WAVs and live-algorithm replay WAVs were generated locally.
