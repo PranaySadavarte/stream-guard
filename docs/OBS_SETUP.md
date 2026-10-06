@@ -34,8 +34,9 @@ clap recording rather than relying solely on the configured buffer value.
 - Repeat near chunk boundaries, rapidly repeated words, noise and longer sentences.
 - Simulate overload/device loss: the UI must warn and the output must be silent.
 - Measure audiovisual offset, audible crackle, callback CPU load and muted time.
-- Retain only consented recordings; StreamGuard itself does not save microphone
-  audio by default. JSON event logs mask terms and contain timing/confidence.
+- StreamGuard can save protected output locally using its recording checkbox,
+  initially enabled. Raw microphone input is not recorded. Saved sessions remain
+  until deleted. JSON event logs mask terms and contain timing/confidence.
 
 ## Current machine status
 
