@@ -126,3 +126,19 @@ def test_full_session_ui_records_without_output_and_filters_after_stop(tmp_path,
     assert len(original)==len(filtered)==19200 and original.any()
     assert 'No deadline muting' in window.metrics.text()
     window.close()
+
+
+def test_fast_live_rejects_batch_and_insufficient_delay_without_devices(tmp_path,monkeypatch):
+    monkeypatch.setattr('streamguard.ui.main_window.RecordedSession',lambda *a,**k:pytest.fail('must not open devices'))
+    monkeypatch.setattr('streamguard.ui.main_window.LiveController',lambda *a,**k:pytest.fail('must not open devices'))
+    app=QApplication.instance() or QApplication([])
+    monkeypatch.setattr('streamguard.ui.main_window.devices',lambda:[
+        {'id':1,'name':'Mic','host':'Test','input_channels':1,'output_channels':0},
+        {'id':2,'name':'Output','host':'Test','input_channels':0,'output_channels':2}])
+    window=MainWindow(tmp_path);window.input.setCurrentIndex(1);window.output.setCurrentIndex(1)
+    window.backend.setCurrentIndex(2);window.start()
+    assert 'requires Live protection' in window.message.text() and window.task is None
+    window.session_mode.setCurrentIndex(1)
+    window.delay.setCurrentIndex(window.delay.findData(1000));window.start()
+    assert 'at least 1.25' in window.message.text() and window.task is None
+    window.close()

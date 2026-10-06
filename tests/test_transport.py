@@ -45,3 +45,12 @@ def test_stop_aborts_without_drain_even_if_abort_fails():
     with pytest.raises(RuntimeError): diagnostic.close()
     assert closed == [True]
     assert diagnostic.stream is None
+
+
+def test_fast_live_cli_rejects_short_delay_before_opening_stream(monkeypatch):
+    monkeypatch.setattr('streamguard.pipeline.controller.LiveController',
+        lambda *args,**kwargs:pytest.fail('must not open devices'))
+    with pytest.raises(SystemExit) as exc:
+        main(['live','--input','0','--output','1','--model','unused',
+              '--detector','bounded','--delay-ms','1000'])
+    assert exc.value.code==2
