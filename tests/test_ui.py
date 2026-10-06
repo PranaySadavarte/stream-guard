@@ -53,7 +53,7 @@ def test_ui_background_start_and_stop(tmp_path, monkeypatch):
         {'id':1,'name':'Mic','host':'Test','input_channels':1,'output_channels':0},
         {'id':2,'name':'Output','host':'Test','input_channels':0,'output_channels':2}])
     class Controller:
-        def __init__(self,*args):self.closed=False
+        def __init__(self,*args,**kwargs):self.closed=False
         def start(self):pass
         def close(self):self.closed=True
         def snapshot(self):return {'state':'FILTERING','error':None,'detected':0,
@@ -65,7 +65,24 @@ def test_ui_background_start_and_stop(tmp_path, monkeypatch):
     deadline=time.monotonic()+2
     while window.task and time.monotonic()<deadline:window.poll();time.sleep(.001)
     assert window.controller is not None and not window.routing.isEnabled()
+    assert not window.record_output.isEnabled() and not window.replay_button.isEnabled()
     controller=window.controller;window.stop()
     while window.task and time.monotonic()<deadline:window.poll();time.sleep(.001)
     assert controller.closed and window.controller is None and window.routing.isEnabled()
+    assert window.record_output.isEnabled()
+    window.close()
+
+
+def test_finished_recording_enables_replay_and_incomplete_recording_does_not(tmp_path, monkeypatch):
+    import threading
+    app=QApplication.instance() or QApplication([])
+    monkeypatch.setattr('streamguard.ui.main_window.devices',lambda:[])
+    window=MainWindow(tmp_path)
+    path=tmp_path/'test.wav'
+    window.task=threading.Thread(target=lambda:None);window.task.start();window.task.join()
+    window.task_result=('stopped',{'path':path,'error':None});window.poll()
+    assert window.last_recording==path and window.replay_button.isEnabled()
+    window.task=threading.Thread(target=lambda:None);window.task.start();window.task.join()
+    window.task_result=('stopped',{'path':None,'error':'Recording is incomplete'});window.poll()
+    assert not window.replay_button.isEnabled() and 'incomplete' in window.recording_status.text()
     window.close()

@@ -47,6 +47,25 @@ are locked during protection, so click Stop before changing them.
 5. Click **Stop**, change Replacement to **Silence**, then repeat the test.
 6. Remove `banana` after testing and save your normal word list.
 
+### Replay the whole session
+
+**Record protected output from Start to Stop** is enabled initially. After Stop,
+click **Play recording** to hear the complete saved session through your Windows
+default audio output. Click **Stop replay** to stop playback. **Open recordings**
+opens the folder so you can choose older sessions or play a WAV in another player.
+Recording preference is included in Save settings.
+
+The WAV contains the audio StreamGuard sent to the output: clean speech, replacement
+beeps, startup silence and protective muting. It begins when the audio device starts,
+after model loading, and ends when you stop. Stop discards queued delayed audio;
+pause for at least the selected delay before stopping to hear the end of your sentence.
+This checks StreamGuard's output, not the later OBS recording or physical speaker sound.
+Recording errors are reported as incomplete and do not interrupt live filtering.
+Playback is disabled while protection runs so it cannot feed back into the microphone.
+Recordings stay locally under `%LOCALAPPDATA%/StreamGuard/recordings` until you delete
+them; they are not uploaded or automatically deleted. Disable the checkbox if you
+do not want to save a session. Earlier unrecorded sessions cannot be recovered.
+
 The notice reports detection and scheduled censorship, not independently verified
 playback. Late recognition reports protective muting. The notice is inside the
 StreamGuard window; it does not notify a phone/watch or overlay other applications.
@@ -120,8 +139,9 @@ or lower the physical speaker volume.
 
 ## 9. Privacy and additional tools
 
-Inference runs locally without an API key or audio upload. The app does not save
-microphone recordings by default. Settings and rotating event logs live under
+Inference runs locally without an API key or audio upload. With the recording checkbox
+enabled, the protected output is saved locally. Raw microphone input is not recorded.
+Settings and rotating event logs live under
 `%LOCALAPPDATA%/StreamGuard`; event terms are masked. Explicit testing tools can
 create recordings, and command-line detection can print full terms.
 

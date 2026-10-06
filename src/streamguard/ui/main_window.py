@@ -3,10 +3,12 @@ from pathlib import Path
 import sys
 import threading
 import time
-from PySide6.QtCore import QTimer, Qt
+import uuid
+from PySide6.QtCore import QTimer, Qt, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox, QDoubleSpinBox, QSpinBox, QLineEdit, QPlainTextEdit,
-    QGroupBox, QFormLayout, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy)
+    QGroupBox, QFormLayout, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy, QCheckBox)
 from ..audio.devices import devices
 from ..audio.censor import CensorSettings
 from ..config import AudioSettings
@@ -46,6 +48,8 @@ class MainWindow(QMainWindow):
         self.last_event = 0
         self.last_log_time = 0
         self.closing = False
+        self.last_recording = None
+        self.player = None
         container=QWidget(); self.setCentralWidget(container)
         layout=QVBoxLayout(container); layout.setContentsMargins(24,20,24,20); layout.setSpacing(12)
         title=QLabel('StreamGuard'); title.setObjectName('title'); layout.addWidget(title)
@@ -96,6 +100,15 @@ class MainWindow(QMainWindow):
         self.stop_button=QPushButton('Stop');self.stop_button.setEnabled(False);self.stop_button.clicked.connect(self.stop)
         self.save_button=QPushButton('Save settings');self.save_button.clicked.connect(self.save)
         controls.addWidget(self.start_button);controls.addWidget(self.stop_button);controls.addStretch();controls.addWidget(self.save_button)
+        recording_controls=QHBoxLayout();layout.addLayout(recording_controls)
+        self.record_output=QCheckBox('Record protected output from Start to Stop');self.record_output.setChecked(True)
+        recording_controls.addWidget(self.record_output)
+        self.replay_button=QPushButton('Play recording');self.replay_button.setEnabled(False)
+        self.replay_button.clicked.connect(self.replay);recording_controls.addWidget(self.replay_button)
+        self.folder_button=QPushButton('Open recordings');self.folder_button.clicked.connect(self.open_recordings)
+        recording_controls.addWidget(self.folder_button)
+        self.recording_status=QLabel('Recording is saved locally. Playback is available after Stop.');self.recording_status.setWordWrap(True)
+        layout.addWidget(self.recording_status)
         self.metrics=QLabel('Detected 0   •   Muted 0.0 s   •   Queue 0   •   Headroom —');self.metrics.setWordWrap(True);layout.addWidget(self.metrics)
         self.events=QTableWidget(0,4);self.events.setHorizontalHeaderLabels(['Time','Term','Confidence','Timing'])
         self.events.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);self.events.setEditTriggers(QTableWidget.NoEditTriggers);layout.addWidget(self.events,1)
@@ -128,7 +141,8 @@ class MainWindow(QMainWindow):
                 'model':self.model.text(),'delay':self.delay.currentData(),'rate':self.rate.currentData(),
                 'channels':self.channels.currentData(),'mode':self.mode.currentText(),
                 'frequency':self.frequency.value(),'volume':self.volume.value(),
-                'before':self.before.value(),'after':self.after.value(),'words':self.words.toPlainText()}
+                'before':self.before.value(),'after':self.after.value(),'words':self.words.toPlainText(),
+                'record_output':self.record_output.isChecked()}
 
     def restore(self,data):
         for name in ('input','output','mode'):
@@ -141,6 +155,25 @@ class MainWindow(QMainWindow):
             if name in data:getattr(self,name).setValue(int(data[name]))
         if 'model' in data:self.model.setText(str(data['model']))
         if 'words' in data:self.words.setPlainText(str(data['words']))
+        if 'record_output' in data:self.record_output.setChecked(bool(data['record_output']))
+
+    def open_recordings(self):
+        folder=self.root/'recordings';folder.mkdir(parents=True,exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder.resolve())))
+
+    def replay(self):
+        if self.controller or self.task or not self.last_recording:return
+        if self.player is None:
+            from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+            self.player=QMediaPlayer(self);self.playback_output=QAudioOutput(self)
+            self.playback_output.setVolume(.5);self.player.setAudioOutput(self.playback_output)
+            self.player.playbackStateChanged.connect(lambda state:self.replay_button.setText(
+                'Stop replay' if state==QMediaPlayer.PlayingState else 'Play recording'))
+            self.player.errorOccurred.connect(lambda error,text:self.recording_status.setText(f'Playback failed: {text}'))
+        if self.player.isPlaying():self.player.stop();return
+        self.player.setSource(QUrl.fromLocalFile(str(self.last_recording.resolve())))
+        self.player.play()
+        self.recording_status.setText(f'Playing saved protected output through Windows default output: {self.last_recording}')
 
     def save(self):
         try:
@@ -151,6 +184,8 @@ class MainWindow(QMainWindow):
     def lock(self,running):
         self.routing.setEnabled(not running);self.censor_group.setEnabled(not running)
         self.start_button.setEnabled(not running);self.save_button.setEnabled(not running)
+        self.record_output.setEnabled(not running)
+        self.replay_button.setEnabled(not running and self.last_recording is not None)
 
     def start(self):
         if self.task or self.controller:return
@@ -164,11 +199,15 @@ class MainWindow(QMainWindow):
             censor=CensorSettings(self.mode.currentText().lower(),self.frequency.value(),self.volume.value()/100,
                                    self.before.value(),self.after.value())
             dictionary=ProfanityDictionary(self.words.toPlainText().splitlines())
-            controller=LiveController(audio,VoskDetector(model),dictionary,censor)
+            recording_path=(self.root/'recordings'/f"session-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}.wav"
+                            if self.record_output.isChecked() else None)
+            controller=LiveController(audio,VoskDetector(model),dictionary,censor,recording_path=recording_path)
         except Exception as exc:
             self.status.setText('NOT STARTED');self.message.setText(str(exc));return
         self.lock(True);self.status.setText('LOADING LOCAL MODEL…');self.last_event=0;self.events.setRowCount(0)
         self.notice_timer.stop();self.violation.hide()
+        if self.player:self.player.stop()
+        self.recording_status.setText('Recording protected output locally…' if recording_path else 'Recording disabled for this session.')
         self.message.setText('Loading locally. Recognition errors can still miss words; test a local OBS recording before broadcasting.')
         def launch():
             try:
@@ -181,7 +220,11 @@ class MainWindow(QMainWindow):
         controller=self.controller;self.controller=None
         self.stop_button.setEnabled(False);self.status.setText('STOPPING…')
         def shutdown():
-            try:controller.close();self.task_result=('stopped',None)
+            try:
+                controller.close()
+                recorder=getattr(controller,'recorder',None)
+                self.task_result=('stopped',{'path':recorder.path if recorder and recorder.complete else None,
+                    'error':recorder.error if recorder else None})
             except Exception as exc:self.task_result=('error',str(exc))
         self.task=threading.Thread(target=shutdown,daemon=True);self.task.start()
 
@@ -190,13 +233,20 @@ class MainWindow(QMainWindow):
             action,value=self.task_result;self.task_result=None;self.task=None
             if action=='started':self.controller=value;self.stop_button.setEnabled(True)
             else:
+                if action=='stopped':
+                    self.last_recording=value['path']
+                    self.recording_status.setText(value['error'] or (
+                        f'Saved protected output: {self.last_recording}' if self.last_recording else 'No recording saved for this session.'))
                 self.lock(False);self.status.setText('STOPPED' if action=='stopped' else 'ERROR — OUTPUT STOPPED')
-                if value:self.message.setText(str(value))
+                if value and action=='error':
+                    self.message.setText(str(value));self.recording_status.setText('Session failed; recording may be absent or incomplete.')
             if self.closing:
                 if self.controller:self.stop()
                 else:self.close()
         if not self.controller:return
         status=self.controller.snapshot();self.status.setText(status['state'])
+        recorder=getattr(self.controller,'recorder',None)
+        if recorder and recorder.error:self.recording_status.setText(recorder.error)
         if time.monotonic()-self.last_log_time>=1:
             self.last_log_time=time.monotonic()
             self.logger.info(json.dumps({k:v for k,v in status.items() if k!='events'}))
@@ -219,6 +269,7 @@ class MainWindow(QMainWindow):
             self.message.setText(status['error']);self.stop()
 
     def closeEvent(self,event):
+        if self.player:self.player.stop()
         if self.controller or self.task:
             self.closing=True;event.ignore()
             if self.controller and not self.task:self.stop()

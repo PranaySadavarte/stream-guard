@@ -13,9 +13,12 @@ def smoke_test():
     destination=Path(sys.argv[2]).resolve()
     app=QApplication([])
     window=MainWindow(destination.parent/'packaged-test-state')
+    from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+    player=QMediaPlayer();player.setAudioOutput(QAudioOutput(player))
     detector=VoskDetector(sys.argv[3]);detector.start(16000)
     detector.process_audio(np.zeros(320,dtype=np.float32));detector.stop()
-    destination.write_text(json.dumps({'qt':'loaded','vosk':'loaded and processed PCM','title':window.windowTitle()}))
+    destination.write_text(json.dumps({'qt':'loaded','playback':'Qt multimedia loaded',
+        'vosk':'loaded and processed PCM','title':window.windowTitle()}))
     window.close()
 
 

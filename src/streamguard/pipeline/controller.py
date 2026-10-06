@@ -5,11 +5,12 @@ import threading
 import time
 import numpy as np
 from ..audio.mailbox import AudioMailbox
+from ..audio.recording import OutputRecorder
 from .engine import CensorEngine
 
 
 class LiveController:
-    def __init__(self, audio, detector, dictionary, censor):
+    def __init__(self, audio, detector, dictionary, censor, recording_path=None):
         if hasattr(sys, '_is_gil_enabled') and not sys._is_gil_enabled():
             raise RuntimeError('free-threaded Python is not supported')
         self.audio, self.detector = audio, detector
@@ -32,8 +33,17 @@ class LiveController:
         self.host_time = 0.0
         self.last_callback = None
         self.started = False
+        self.recorder = (OutputRecorder(recording_path, audio.sample_rate, audio.output_channels, self.block)
+                         if recording_path else None)
 
     def callback(self, incoming, output, frames, times, status):
+        try:
+            self._render(incoming, output, frames, times, status)
+        finally:
+            # Only the output is recorded, including startup/fault silence. Never raw input.
+            if self.recorder and not self.stop_event.is_set():self.recorder.push(output)
+
+    def _render(self, incoming, output, frames, times, status):
         output.fill(0)
         self.last_callback = time.monotonic()
         if self.stop_event.is_set() or self.fault: return
@@ -101,6 +111,7 @@ class LiveController:
             sd.check_input_settings(device=s.input_device, channels=1, samplerate=s.sample_rate, dtype='float32')
             sd.check_output_settings(device=s.output_device, channels=s.output_channels,
                                      samplerate=s.sample_rate, dtype='float32')
+            if self.recorder:self.recorder.start()
             self.stream = sd.Stream(device=(s.input_device,s.output_device), channels=(1,s.output_channels),
                                     samplerate=s.sample_rate, blocksize=self.block, dtype='float32',
                                     callback=self.callback, latency='high')
@@ -133,6 +144,11 @@ class LiveController:
 
     def close(self):
         self.stop_event.set()
+        try:self._close_audio()
+        finally:
+            if self.recorder:self.recorder.close()
+
+    def _close_audio(self):
         if self.stream:
             try: self.stream.abort()
             finally:

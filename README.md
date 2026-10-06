@@ -85,7 +85,9 @@ UTF-8 file with one word per line. Output must differ from the source path.
 The UI distinguishes stopped, loading, warming up, filtering, at-risk/muted and
 faults. Queue overflow, invalid coverage, device errors and detector crashes
 cannot enable raw pass-through. Stop aborts queued playback. The app never
-records microphone audio by default.
+records raw microphone audio. The desktop app can save protected output from Start
+to Stop (checkbox initially enabled) and replay the WAV after stopping. Recordings
+are local under `%LOCALAPPDATA%/StreamGuard/recordings` and remain until deleted.
 
 Settings and rotating JSON logs are under `%LOCALAPPDATA%/StreamGuard`. Terms are
 masked in GUI logs; CLI debugging can show the full detected word. Percentiles
