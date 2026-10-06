@@ -1,5 +1,10 @@
 # StreamGuard user guide
 
+For the latest proof of concept, follow [full-session recording](FULL_SESSION_TEST.md).
+It is the default mode and saves original audio before filtering after Stop, with
+local Whisper available. The live routing instructions below apply only to
+**Live protection (experimental)**, which still has the deadline muting limitation.
+
 StreamGuard is a Windows prototype for filtering the microphone audio heard by
 your audience. It recognizes speech locally, looks for your blocked single words,
 and replaces their audio with a beep or silence. Your audience audio is delayed

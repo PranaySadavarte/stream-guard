@@ -11,6 +11,12 @@ from recognition mistakes.
 
 ## Launch
 
+**For the current proof of concept, use full-session recording mode:** record
+normally, Stop, wait for processing, then compare original and filtered playback.
+This preserves speech without the experimental live deadline muting. See the
+[full-session test guide](docs/FULL_SESSION_TEST.md). Local Whisper support uses
+the `whisper` extra and `tools/download_whisper_model.py`.
+
 For a complete walkthrough, see the [user guide](docs/USER_GUIDE.md).
 
 Double-click **Launch StreamGuard.cmd**. It prefers the packaged Windows app in
