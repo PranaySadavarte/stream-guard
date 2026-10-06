@@ -14,6 +14,7 @@ from ..audio.censor import CensorSettings
 from ..config import AudioSettings
 from ..detection.profanity import DEFAULT_TERMS, ProfanityDictionary
 from ..detection.vosk_backend import VoskDetector
+from ..detection.bounded_vosk import BoundedVoskDetector
 from ..detection.whisper_backend import WhisperFileDetector
 from ..pipeline.controller import LiveController
 from ..pipeline.session import RecordedSession
@@ -78,7 +79,7 @@ class MainWindow(QMainWindow):
         model_row=QHBoxLayout(); model_row.addWidget(self.model)
         browse=QPushButton('Browse'); browse.clicked.connect(self.browse_model); model_row.addWidget(browse)
         form.addRow('Local model',model_row)
-        self.backend=QComboBox();self.backend.addItems(['Vosk · local English model','Whisper · local English, offline'])
+        self.backend=QComboBox();self.backend.addItems(['Vosk - local English model','Whisper - local English, offline','Vosk - fast live (experimental)'])
         form.addRow('Detector',self.backend)
         self.delay=QComboBox()
         for ms in (500,750,1000,1250,1500,2000,2500,3000): self.delay.addItem(f'{ms/1000:g} seconds',ms)
@@ -240,6 +241,9 @@ class MainWindow(QMainWindow):
             if not batch and self.output.currentData() is None:raise ValueError('Choose both a microphone and output device.')
             model=self.model.text().strip()
             whisper=self.backend.currentIndex()==1
+            bounded=self.backend.currentIndex()==2
+            if bounded and batch:raise ValueError('Fast live detection requires Live protection mode. Use Whisper for full-session recording.')
+            if bounded and self.delay.currentData()<1250:raise ValueError('Fast live detection currently needs at least 1.25 seconds of audience delay.')
             if whisper and not batch:raise ValueError('Whisper is supported in full-session recording mode. Use Vosk for experimental live mode.')
             if not (Path(model)/('model.bin' if whisper else 'am/final.mdl')).is_file():
                 raise ValueError('Choose the downloaded Whisper model folder.' if whisper else 'Choose the extracted Vosk model folder (containing am/final.mdl).')
@@ -249,6 +253,7 @@ class MainWindow(QMainWindow):
             censor=CensorSettings(self.mode.currentText().lower(),self.frequency.value(),self.volume.value()/100,
                                    self.before.value(),self.after.value())
             dictionary=ProfanityDictionary(self.words.toPlainText().splitlines())
+            if bounded:detector=BoundedVoskDetector(model,750,250,dictionary.terms)
             recording_path=(self.root/'recordings'/f"session-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}.wav"
                             if batch or self.record_output.isChecked() else None)
             controller=(RecordedSession(audio,detector,dictionary,censor,recording_path) if batch else

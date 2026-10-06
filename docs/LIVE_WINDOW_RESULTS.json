@@ -1,0 +1,392 @@
+[
+  {
+    "fixture": "clean",
+    "seconds": 2.64,
+    "delay_ms": 1250,
+    "detected": 0,
+    "expected": 0,
+    "error": null,
+    "reference_word_replaced_percent": [],
+    "clean_outside_reference_unchanged_percent": 100.0,
+    "processing_ms": {
+      "p50": 0.44,
+      "p95": 13.1,
+      "p99": 16.4,
+      "max": 19.4
+    },
+    "realtime_factor": 0.122,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "profanity",
+    "seconds": 2.42,
+    "delay_ms": 1250,
+    "detected": 1,
+    "expected": 1,
+    "error": null,
+    "reference_word_replaced_percent": [
+      99.95
+    ],
+    "clean_outside_reference_unchanged_percent": 96.31,
+    "processing_ms": {
+      "p50": 0.43,
+      "p95": 12.7,
+      "p99": 17.2,
+      "max": 18.73
+    },
+    "realtime_factor": 0.123,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "repeated",
+    "seconds": 4.22,
+    "delay_ms": 1250,
+    "detected": 2,
+    "expected": 2,
+    "error": null,
+    "reference_word_replaced_percent": [
+      100.0,
+      99.95
+    ],
+    "clean_outside_reference_unchanged_percent": 92.03,
+    "processing_ms": {
+      "p50": 0.42,
+      "p95": 12.41,
+      "p99": 16.09,
+      "max": 18.39
+    },
+    "realtime_factor": 0.118,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "continuous",
+    "seconds": 26.73,
+    "delay_ms": 1250,
+    "detected": 12,
+    "expected": 12,
+    "error": null,
+    "reference_word_replaced_percent": [
+      100.0,
+      100.0,
+      100.0,
+      100.0,
+      100.0,
+      99.97,
+      100.0,
+      100.0,
+      100.0,
+      100.0,
+      100.0,
+      100.0
+    ],
+    "clean_outside_reference_unchanged_percent": 98.11,
+    "processing_ms": {
+      "p50": 0.41,
+      "p95": 12.38,
+      "p99": 16.99,
+      "max": 25.59
+    },
+    "realtime_factor": 0.127,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "clean-offset-100",
+    "seconds": 2.74,
+    "delay_ms": 1250,
+    "detected": 0,
+    "expected": 0,
+    "error": null,
+    "reference_word_replaced_percent": [],
+    "clean_outside_reference_unchanged_percent": 100.0,
+    "processing_ms": {
+      "p50": 0.42,
+      "p95": 11.44,
+      "p99": 15.84,
+      "max": 17.07
+    },
+    "realtime_factor": 0.115,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "clean-offset-200",
+    "seconds": 2.84,
+    "delay_ms": 1250,
+    "detected": 0,
+    "expected": 0,
+    "error": null,
+    "reference_word_replaced_percent": [],
+    "clean_outside_reference_unchanged_percent": 100.0,
+    "processing_ms": {
+      "p50": 0.4,
+      "p95": 11.0,
+      "p99": 15.19,
+      "max": 15.88
+    },
+    "realtime_factor": 0.109,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "clean-offset-300",
+    "seconds": 2.94,
+    "delay_ms": 1250,
+    "detected": 0,
+    "expected": 0,
+    "error": null,
+    "reference_word_replaced_percent": [],
+    "clean_outside_reference_unchanged_percent": 100.0,
+    "processing_ms": {
+      "p50": 0.41,
+      "p95": 11.65,
+      "p99": 15.45,
+      "max": 16.21
+    },
+    "realtime_factor": 0.112,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "clean-offset-400",
+    "seconds": 3.04,
+    "delay_ms": 1250,
+    "detected": 0,
+    "expected": 0,
+    "error": null,
+    "reference_word_replaced_percent": [],
+    "clean_outside_reference_unchanged_percent": 100.0,
+    "processing_ms": {
+      "p50": 0.47,
+      "p95": 14.6,
+      "p99": 20.71,
+      "max": 30.28
+    },
+    "realtime_factor": 0.138,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "profanity-offset-100",
+    "seconds": 2.52,
+    "delay_ms": 1250,
+    "detected": 1,
+    "expected": 1,
+    "error": null,
+    "reference_word_replaced_percent": [
+      99.95
+    ],
+    "clean_outside_reference_unchanged_percent": 100.0,
+    "processing_ms": {
+      "p50": 0.43,
+      "p95": 12.53,
+      "p99": 14.99,
+      "max": 20.87
+    },
+    "realtime_factor": 0.122,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "profanity-offset-200",
+    "seconds": 2.62,
+    "delay_ms": 1250,
+    "detected": 1,
+    "expected": 1,
+    "error": null,
+    "reference_word_replaced_percent": [
+      99.95
+    ],
+    "clean_outside_reference_unchanged_percent": 98.39,
+    "processing_ms": {
+      "p50": 0.46,
+      "p95": 13.53,
+      "p99": 17.34,
+      "max": 24.25
+    },
+    "realtime_factor": 0.129,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "profanity-offset-300",
+    "seconds": 2.73,
+    "delay_ms": 1250,
+    "detected": 1,
+    "expected": 1,
+    "error": null,
+    "reference_word_replaced_percent": [
+      99.95
+    ],
+    "clean_outside_reference_unchanged_percent": 98.39,
+    "processing_ms": {
+      "p50": 0.41,
+      "p95": 12.29,
+      "p99": 16.89,
+      "max": 20.12
+    },
+    "realtime_factor": 0.116,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "profanity-offset-400",
+    "seconds": 2.83,
+    "delay_ms": 1250,
+    "detected": 1,
+    "expected": 1,
+    "error": null,
+    "reference_word_replaced_percent": [
+      99.95
+    ],
+    "clean_outside_reference_unchanged_percent": 96.9,
+    "processing_ms": {
+      "p50": 0.52,
+      "p95": 15.83,
+      "p99": 21.27,
+      "max": 24.88
+    },
+    "realtime_factor": 0.152,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "repeated-offset-100",
+    "seconds": 4.32,
+    "delay_ms": 1250,
+    "detected": 2,
+    "expected": 2,
+    "error": null,
+    "reference_word_replaced_percent": [
+      100.0,
+      99.95
+    ],
+    "clean_outside_reference_unchanged_percent": 96.38,
+    "processing_ms": {
+      "p50": 0.53,
+      "p95": 17.53,
+      "p99": 23.51,
+      "max": 30.4
+    },
+    "realtime_factor": 0.166,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "repeated-offset-200",
+    "seconds": 4.42,
+    "delay_ms": 1250,
+    "detected": 2,
+    "expected": 2,
+    "error": null,
+    "reference_word_replaced_percent": [
+      100.0,
+      99.95
+    ],
+    "clean_outside_reference_unchanged_percent": 92.11,
+    "processing_ms": {
+      "p50": 0.53,
+      "p95": 17.08,
+      "p99": 21.87,
+      "max": 33.93
+    },
+    "realtime_factor": 0.163,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "repeated-offset-300",
+    "seconds": 4.52,
+    "delay_ms": 1250,
+    "detected": 2,
+    "expected": 2,
+    "error": null,
+    "reference_word_replaced_percent": [
+      100.0,
+      99.95
+    ],
+    "clean_outside_reference_unchanged_percent": 91.54,
+    "processing_ms": {
+      "p50": 0.54,
+      "p95": 16.28,
+      "p99": 23.88,
+      "max": 29.94
+    },
+    "realtime_factor": 0.16,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  },
+  {
+    "fixture": "repeated-offset-400",
+    "seconds": 4.62,
+    "delay_ms": 1250,
+    "detected": 2,
+    "expected": 2,
+    "error": null,
+    "reference_word_replaced_percent": [
+      100.0,
+      99.95
+    ],
+    "clean_outside_reference_unchanged_percent": 94.37,
+    "processing_ms": {
+      "p50": 0.52,
+      "p95": 15.33,
+      "p99": 22.46,
+      "max": 26.75
+    },
+    "realtime_factor": 0.154,
+    "release_age_ms": {
+      "p50": 800.0,
+      "p95": 920.0,
+      "p99": 920.0
+    }
+  }
+]

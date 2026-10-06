@@ -43,8 +43,14 @@ class CensorEngine:
             if span.end <= playback_sample and fingerprint in self._history_keys:
                 continue
             # Union revisions, including earlier/later boundaries, until expired.
-            key = next((key for key, old in self._seen.items()
-                        if old.text == word.text and old.start < word.end and word.start < old.end), None)
+            # Overlapping decoders may label the same utterance with different
+            # blocked inflections. Merge substantial overlap for notification
+            # counts, while retaining EVERY candidate censor span below.
+            def same_utterance(old):
+                overlap=min(old.end,word.end)-max(old.start,word.start)
+                shorter=min(old.end-old.start,word.end-word.start)
+                return overlap>0 and (old.text==word.text or overlap>=.5*shorter)
+            key = next((key for key, old in self._seen.items() if same_utterance(old)), None)
             if key is None:
                 if word.start*self.rate < previous_finalized - 1:
                     raise RuntimeError('detector revised previously finalized audio')

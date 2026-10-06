@@ -21,6 +21,10 @@ def main(argv=None):
     live.add_argument('--output-channels', type=int, choices=[1,2], default=2)
     live.add_argument('--mode', choices=['beep','silence'], default='beep')
     live.add_argument('--terms')
+    live.add_argument('--detector', choices=['endpoint', 'bounded'], default='endpoint',
+                      help='bounded: experimental keyword windows for continuous speech')
+    live.add_argument('--window-ms', type=int, default=750)
+    live.add_argument('--hop-ms', type=int, default=250)
     live.add_argument('--seconds', type=int, default=60)
     observe = commands.add_parser('detect', help='live local recognition; no audio output')
     observe.add_argument('--input', type=int, required=True)
@@ -65,7 +69,13 @@ def main(argv=None):
         dictionary = ProfanityDictionary(Path(args.terms).read_text(encoding='utf-8').splitlines()) if args.terms else ProfanityDictionary()
         settings = AudioSettings(args.input,args.output, sample_rate=args.sample_rate,
                                  delay_ms=args.delay_ms,output_channels=args.output_channels)
-        controller = LiveController(settings,VoskDetector(args.model),dictionary,CensorSettings(mode=args.mode))
+        detector = VoskDetector(args.model)
+        if args.detector == 'bounded':
+            from .detection.bounded_vosk import BoundedVoskDetector
+            if args.delay_ms < args.window_ms + 500:
+                parser.error('bounded mode needs audience delay at least window-ms + 500 ms')
+            detector = BoundedVoskDetector(args.model, args.window_ms, args.hop_ms, dictionary.terms)
+        controller = LiveController(settings,detector,dictionary,CensorSettings(mode=args.mode))
         try:
             controller.start()
             deadline = time.monotonic()+args.seconds
