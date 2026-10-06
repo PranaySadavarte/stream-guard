@@ -11,6 +11,8 @@ from recognition mistakes.
 
 ## Launch
 
+For a complete walkthrough, see the [user guide](docs/USER_GUIDE.md).
+
 Double-click **Launch StreamGuard.cmd**. It prefers the packaged Windows app in
 `dist/StreamGuard/StreamGuard.exe` and otherwise uses the installed environment.
 Keep the entire packaged folder together. The prepared local model is

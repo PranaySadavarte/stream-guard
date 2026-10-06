@@ -26,6 +26,7 @@ QPushButton:hover { background:#314963; } QPushButton:disabled { color:#65758b; 
 QPushButton#start { background:#39d7b2; color:#071b17; font-weight:700; }
 QLabel#title { font-size:30px; font-weight:700; } QLabel#subtitle { color:#9eb0c8; }
 QLabel#status { background:#1b293b; padding:14px; border-radius:8px; font-size:18px; font-weight:600; }
+QLabel#violation { background:#613c15; color:#fff0c9; padding:12px; border:1px solid #e6a84b; border-radius:8px; font-size:16px; font-weight:600; }
 QTableWidget { background:#142031; border:1px solid #304054; gridline-color:#26364b; }
 QHeaderView::section { background:#233249; color:#cbd9eb; padding:8px; border:0; }
 '''
@@ -50,6 +51,10 @@ class MainWindow(QMainWindow):
         title=QLabel('StreamGuard'); title.setObjectName('title'); layout.addWidget(title)
         subtitle=QLabel('SPONSOR SAFE MODE  /  Local speech filtering'); subtitle.setObjectName('subtitle'); layout.addWidget(subtitle)
         self.status=QLabel('STOPPED'); self.status.setObjectName('status'); layout.addWidget(self.status)
+        self.violation=QLabel();self.violation.setObjectName('violation');self.violation.setWordWrap(True)
+        self.violation.hide();layout.addWidget(self.violation)
+        self.notice_timer=QTimer(self);self.notice_timer.setSingleShot(True)
+        self.notice_timer.timeout.connect(self.violation.hide)
         notice=QLabel('Only the audience path is delayed. Unfinished recognition is muted. Speech recognition can miss words.')
         notice.setWordWrap(True); layout.addWidget(notice)
         columns=QHBoxLayout(); layout.addLayout(columns)
@@ -163,6 +168,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             self.status.setText('NOT STARTED');self.message.setText(str(exc));return
         self.lock(True);self.status.setText('LOADING LOCAL MODEL…');self.last_event=0;self.events.setRowCount(0)
+        self.notice_timer.stop();self.violation.hide()
         self.message.setText('Loading locally. Recognition errors can still miss words; test a local OBS recording before broadcasting.')
         def launch():
             try:
@@ -199,6 +205,9 @@ class MainWindow(QMainWindow):
         for event in status['events']:
             if event['id']<=self.last_event:continue
             self.last_event=event['id'];masked=masked_event(event)
+            timing='Recognition arrived late; output uses protective muting.' if event['late'] else 'Censorship scheduled for the delayed audio.'
+            self.violation.setText(f"Blocked word detected: {masked['term']} — {timing} Avoid repeating it.")
+            self.violation.show();self.notice_timer.start(10000)
             row=self.events.rowCount();self.events.insertRow(row)
             values=[time.strftime('%H:%M:%S',time.localtime(event['timestamp'])),masked['term'],
                     f"{event['confidence']:.0%}",'Late / muted' if event['late'] else f"{event['latency_ms']:.0f} ms"]

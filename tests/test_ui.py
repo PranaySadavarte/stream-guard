@@ -28,6 +28,25 @@ def test_ui_validates_before_start_and_restores_settings(tmp_path, monkeypatch):
     window.close()
 
 
+def test_violation_notice_masks_terms_and_deduplicates(tmp_path, monkeypatch):
+    app=QApplication.instance() or QApplication([])
+    monkeypatch.setattr('streamguard.ui.main_window.devices',lambda:[])
+    event={'id':1,'timestamp':time.time(),'term':'shit','confidence':.9,
+           'late':False,'latency_ms':500,'start':0,'end':1}
+    class Controller:
+        def snapshot(self):return {'state':'FILTERING','error':None,'detected':1,
+            'muted_ms':0,'queue_depth':0,'headroom_ms':1200,'detection_latency_ms':None,'events':[event]}
+    window=MainWindow(tmp_path);window.controller=Controller()
+    window.poll()
+    assert 's***' in window.violation.text() and 'shit' not in window.violation.text()
+    assert 'scheduled' in window.violation.text() and not window.violation.isHidden()
+    window.violation.hide();window.poll()
+    assert window.violation.isHidden() and window.events.rowCount()==1
+    event.update(id=2,late=True);window.poll()
+    assert 'late' in window.violation.text() and not window.violation.isHidden()
+    window.controller=None;window.close()
+
+
 def test_ui_background_start_and_stop(tmp_path, monkeypatch):
     app=QApplication.instance() or QApplication([])
     monkeypatch.setattr('streamguard.ui.main_window.devices',lambda:[
