@@ -34,20 +34,29 @@ def censor_file(source, destination, dictionary=None, settings=None, words=None,
     if words is None:
         if detector is None:
             raise ValueError('provide a speech detector or annotated words')
-        words = []
-        detector.start(rate)
-        try:
-            for offset in range(0, len(audio), rate // 50):
-                result = detector.process_audio(audio[offset:offset+rate//50].mean(axis=1))
-                words.extend(result.words)
-            words.extend(detector.finish().words)
-        finally:
-            detector.stop()
+        if hasattr(detector,'transcribe_file'):
+            words=detector.transcribe_file(source)
+        else:
+            words=_stream_words(audio,rate,detector)
     spans = [word_span(w, rate, settings) for w in words if dictionary.matches(w.text)]
     result = audio.copy()
     censor_into(result, 0, spans, rate, settings)
     write_wav(destination, result, rate)
     return spans
+
+
+def _stream_words(audio,rate,detector):
+    words = []
+    detector.start(rate)
+    try:
+        for offset in range(0, len(audio), rate // 50):
+            result = detector.process_audio(audio[offset:offset+rate//50].mean(axis=1))
+            # Final results only: partial hypotheses are revised repeatedly.
+            if result.finalized_through > offset:words.extend(result.words)
+        words.extend(detector.finish().words)
+    finally:
+        detector.stop()
+    return words
 
 
 def load_words(path):

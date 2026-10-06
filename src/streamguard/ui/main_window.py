@@ -3,16 +3,20 @@ from pathlib import Path
 import sys
 import threading
 import time
-from PySide6.QtCore import QTimer, Qt
+import uuid
+from PySide6.QtCore import QTimer, Qt, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox, QDoubleSpinBox, QSpinBox, QLineEdit, QPlainTextEdit,
-    QGroupBox, QFormLayout, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy)
+    QGroupBox, QFormLayout, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy, QCheckBox)
 from ..audio.devices import devices
 from ..audio.censor import CensorSettings
 from ..config import AudioSettings
 from ..detection.profanity import DEFAULT_TERMS, ProfanityDictionary
 from ..detection.vosk_backend import VoskDetector
+from ..detection.whisper_backend import WhisperFileDetector
 from ..pipeline.controller import LiveController
+from ..pipeline.session import RecordedSession
 from ..telemetry import event_logger, log_event, masked_event
 from .settings import data_directory, load_settings, save_settings
 
@@ -26,6 +30,7 @@ QPushButton:hover { background:#314963; } QPushButton:disabled { color:#65758b; 
 QPushButton#start { background:#39d7b2; color:#071b17; font-weight:700; }
 QLabel#title { font-size:30px; font-weight:700; } QLabel#subtitle { color:#9eb0c8; }
 QLabel#status { background:#1b293b; padding:14px; border-radius:8px; font-size:18px; font-weight:600; }
+QLabel#violation { background:#613c15; color:#fff0c9; padding:12px; border:1px solid #e6a84b; border-radius:8px; font-size:16px; font-weight:600; }
 QTableWidget { background:#142031; border:1px solid #304054; gridline-color:#26364b; }
 QHeaderView::section { background:#233249; color:#cbd9eb; padding:8px; border:0; }
 '''
@@ -45,15 +50,23 @@ class MainWindow(QMainWindow):
         self.last_event = 0
         self.last_log_time = 0
         self.closing = False
+        self.last_recording = None
+        self.original_recording = None
+        self.player = None
         container=QWidget(); self.setCentralWidget(container)
         layout=QVBoxLayout(container); layout.setContentsMargins(24,20,24,20); layout.setSpacing(12)
         title=QLabel('StreamGuard'); title.setObjectName('title'); layout.addWidget(title)
         subtitle=QLabel('SPONSOR SAFE MODE  /  Local speech filtering'); subtitle.setObjectName('subtitle'); layout.addWidget(subtitle)
         self.status=QLabel('STOPPED'); self.status.setObjectName('status'); layout.addWidget(self.status)
-        notice=QLabel('Only the audience path is delayed. Unfinished recognition is muted. Speech recognition can miss words.')
-        notice.setWordWrap(True); layout.addWidget(notice)
+        self.violation=QLabel();self.violation.setObjectName('violation');self.violation.setWordWrap(True)
+        self.violation.hide();layout.addWidget(self.violation)
+        self.notice_timer=QTimer(self);self.notice_timer.setSingleShot(True)
+        self.notice_timer.timeout.connect(self.violation.hide)
+        self.notice=QLabel();self.notice.setWordWrap(True);layout.addWidget(self.notice)
         columns=QHBoxLayout(); layout.addLayout(columns)
         self.routing=QGroupBox('Audio and recognition'); form=QFormLayout(self.routing); columns.addWidget(self.routing,1)
+        self.session_mode=QComboBox();self.session_mode.addItems(['Record full session, filter after Stop','Live protection (experimental)'])
+        form.addRow('Test mode',self.session_mode)
         self.input=QComboBox(); self.output=QComboBox()
         for combo in (self.input,self.output):
             combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
@@ -65,7 +78,8 @@ class MainWindow(QMainWindow):
         model_row=QHBoxLayout(); model_row.addWidget(self.model)
         browse=QPushButton('Browse'); browse.clicked.connect(self.browse_model); model_row.addWidget(browse)
         form.addRow('Local model',model_row)
-        self.backend=QComboBox(); self.backend.addItem('Vosk · local English model'); form.addRow('Detector',self.backend)
+        self.backend=QComboBox();self.backend.addItems(['Vosk · local English model','Whisper · local English, offline'])
+        form.addRow('Detector',self.backend)
         self.delay=QComboBox()
         for ms in (500,750,1000,1250,1500,2000,2500,3000): self.delay.addItem(f'{ms/1000:g} seconds',ms)
         self.delay.setCurrentIndex(4); form.addRow('Audience delay',self.delay)
@@ -74,8 +88,7 @@ class MainWindow(QMainWindow):
         self.rate.setCurrentIndex(3); form.addRow('Sample rate',self.rate)
         self.channels=QComboBox();self.channels.addItem('Mono',1);self.channels.addItem('Stereo',2);self.channels.setCurrentIndex(1)
         form.addRow('Output channels',self.channels)
-        note=QLabel('OBS uses CABLE Output. StreamGuard sends to CABLE Input.\nFor the current Vosk model, try 3 seconds if speech is muted.')
-        note.setWordWrap(True);form.addRow(note)
+        self.route_note=QLabel();self.route_note.setWordWrap(True);form.addRow(self.route_note)
         self.censor_group=QGroupBox('Censorship'); censor_form=QFormLayout(self.censor_group);columns.addWidget(self.censor_group,1)
         self.mode=QComboBox();self.mode.addItems(['Beep','Silence']);censor_form.addRow('Replacement',self.mode)
         self.frequency=QSpinBox();self.frequency.setRange(100,4000);self.frequency.setValue(1000);self.frequency.setSuffix(' Hz');censor_form.addRow('Beep frequency',self.frequency)
@@ -91,6 +104,17 @@ class MainWindow(QMainWindow):
         self.stop_button=QPushButton('Stop');self.stop_button.setEnabled(False);self.stop_button.clicked.connect(self.stop)
         self.save_button=QPushButton('Save settings');self.save_button.clicked.connect(self.save)
         controls.addWidget(self.start_button);controls.addWidget(self.stop_button);controls.addStretch();controls.addWidget(self.save_button)
+        recording_controls=QHBoxLayout();layout.addLayout(recording_controls)
+        self.record_output=QCheckBox('Record protected output from Start to Stop');self.record_output.setChecked(True)
+        recording_controls.addWidget(self.record_output)
+        self.replay_button=QPushButton('Play recording');self.replay_button.setEnabled(False)
+        self.replay_button.clicked.connect(self.replay);recording_controls.addWidget(self.replay_button)
+        self.original_button=QPushButton('Play original');self.original_button.setEnabled(False)
+        self.original_button.clicked.connect(lambda checked=False:self.replay(True));recording_controls.addWidget(self.original_button)
+        self.folder_button=QPushButton('Open recordings');self.folder_button.clicked.connect(self.open_recordings)
+        recording_controls.addWidget(self.folder_button)
+        self.recording_status=QLabel('Recording is saved locally. Playback is available after Stop.');self.recording_status.setWordWrap(True)
+        layout.addWidget(self.recording_status)
         self.metrics=QLabel('Detected 0   •   Muted 0.0 s   •   Queue 0   •   Headroom —');self.metrics.setWordWrap(True);layout.addWidget(self.metrics)
         self.events=QTableWidget(0,4);self.events.setHorizontalHeaderLabels(['Time','Term','Confidence','Timing'])
         self.events.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);self.events.setEditTriggers(QTableWidget.NoEditTriggers);layout.addWidget(self.events,1)
@@ -98,6 +122,9 @@ class MainWindow(QMainWindow):
         self.refresh_devices()
         try:self.restore(load_settings(self.root/'settings.json'))
         except Exception as exc:self.message.setText(f'Could not load saved settings: {exc}')
+        self.session_mode.currentIndexChanged.connect(self.update_session_mode)
+        self.backend.currentIndexChanged.connect(self.choose_backend_model)
+        self.update_session_mode()
         self.timer=QTimer(self);self.timer.timeout.connect(self.poll);self.timer.start(150)
         self.setStyleSheet(STYLE)
 
@@ -112,20 +139,25 @@ class MainWindow(QMainWindow):
         except Exception as exc:self.status.setText(f'Device enumeration failed: {exc}')
 
     def browse_model(self):
-        selected=QFileDialog.getExistingDirectory(self,'Choose local Vosk model')
+        selected=QFileDialog.getExistingDirectory(self,'Choose local recognition model')
         if selected:self.model.setText(selected)
 
     def update_count(self):
         self.count.setText(f'{len(set(self.words.toPlainText().split()))} blocked terms')
 
     def values(self):
-        return {'input':self.input.currentText(),'output':self.output.currentText(),
+        values={'input':self.input.currentText(),'output':self.output.currentText(),
                 'model':self.model.text(),'delay':self.delay.currentData(),'rate':self.rate.currentData(),
                 'channels':self.channels.currentData(),'mode':self.mode.currentText(),
                 'frequency':self.frequency.value(),'volume':self.volume.value(),
-                'before':self.before.value(),'after':self.after.value(),'words':self.words.toPlainText()}
+                'before':self.before.value(),'after':self.after.value(),'words':self.words.toPlainText(),
+                'record_output':self.record_output.isChecked()}
+        values['session_mode']=self.session_mode.currentIndex();values['backend']=self.backend.currentIndex()
+        return values
 
     def restore(self,data):
+        self.session_mode.setCurrentIndex(int(data.get('session_mode',0)))
+        self.backend.setCurrentIndex(int(data.get('backend',0)))
         for name in ('input','output','mode'):
             combo=getattr(self,name);idx=combo.findText(str(data.get(name,'')))
             if idx>=0:combo.setCurrentIndex(idx)
@@ -136,6 +168,55 @@ class MainWindow(QMainWindow):
             if name in data:getattr(self,name).setValue(int(data[name]))
         if 'model' in data:self.model.setText(str(data['model']))
         if 'words' in data:self.words.setPlainText(str(data['words']))
+        if 'record_output' in data:self.record_output.setChecked(bool(data['record_output']))
+
+    def choose_backend_model(self):
+        repo=Path(sys.executable).resolve().parents[2] if getattr(sys,'frozen',False) else Path(__file__).resolve().parents[3]
+        name='faster-whisper-small.en' if self.backend.currentIndex()==1 else 'vosk-model-small-en-us-0.15'
+        candidate=repo/'models'/name
+        if candidate.is_dir():self.model.setText(str(candidate))
+
+    def update_session_mode(self):
+        batch=self.session_mode.currentIndex()==0
+        self.output.setEnabled(not batch);self.delay.setEnabled(not batch);self.channels.setEnabled(not batch)
+        self.record_output.setEnabled(not batch)
+        self.record_output.setVisible(not batch)
+        self.record_output.setText('Full session saved locally' if batch else 'Save live output')
+        self.start_button.setText('Start recording' if batch else 'Start protection')
+        self.route_note.setText('Full-session mode uses only the microphone. Output and audience delay are unused.' if batch else
+                               'OBS captures CABLE Output; StreamGuard sends to CABLE Input. Vosk may mute late recognition even with 3 seconds.')
+        self.replay_button.setText('Play filtered' if batch else 'Play recording')
+        if not self.controller and not self.task and not self.last_recording:
+            self.metrics.setText('Ready to record the entire session; filtering begins after Stop.' if batch else
+                                 'Detected 0 • Muted 0.0 s • Queue 0 • Headroom —')
+        self.notice.setText('Record first, filter after Stop. Original and filtered audio are saved locally; no audio is sent to OBS.'
+                            if batch else 'Experimental live mode: unfinished recognition is muted. Recognition can miss words.')
+
+
+    def open_recordings(self):
+        folder=self.root/'recordings';folder.mkdir(parents=True,exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder.resolve())))
+
+    def replay(self,original=False):
+        path=self.original_recording if original else self.last_recording
+        if self.controller or self.task or not path:return
+        if self.player is None:
+            from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+            self.player=QMediaPlayer(self);self.playback_output=QAudioOutput(self)
+            self.playback_output.setVolume(.5);self.player.setAudioOutput(self.playback_output)
+            self.player.playbackStateChanged.connect(self.replay_state)
+            self.player.errorOccurred.connect(lambda error,text:self.recording_status.setText(f'Playback failed: {text}'))
+        if self.player.isPlaying() and self.player.source()==QUrl.fromLocalFile(str(path.resolve())):
+            self.player.stop();return
+        self.player.stop();self.playback_button=self.original_button if original else self.replay_button
+        self.player.setSource(QUrl.fromLocalFile(str(path.resolve())))
+        self.player.play()
+        self.recording_status.setText(f"Playing {'ORIGINAL — UNCENSORED' if original else 'filtered'} audio through Windows default output: {path}")
+
+    def replay_state(self,state):
+        self.replay_button.setText('Play filtered' if self.session_mode.currentIndex()==0 else 'Play recording')
+        self.original_button.setText('Play original')
+        if state==self.player.PlayingState:self.playback_button.setText('Stop replay')
 
     def save(self):
         try:
@@ -146,24 +227,42 @@ class MainWindow(QMainWindow):
     def lock(self,running):
         self.routing.setEnabled(not running);self.censor_group.setEnabled(not running)
         self.start_button.setEnabled(not running);self.save_button.setEnabled(not running)
+        self.record_output.setEnabled(not running)
+        self.replay_button.setEnabled(not running and self.last_recording is not None)
+        self.original_button.setEnabled(not running and self.original_recording is not None)
+        if not running:self.update_session_mode()
 
     def start(self):
         if self.task or self.controller:return
         try:
-            if self.input.currentData() is None or self.output.currentData() is None:
-                raise ValueError('Choose both a microphone and output device.')
+            batch=self.session_mode.currentIndex()==0
+            if self.input.currentData() is None:raise ValueError('Choose a microphone device.')
+            if not batch and self.output.currentData() is None:raise ValueError('Choose both a microphone and output device.')
             model=self.model.text().strip()
-            if not (Path(model)/'am'/'final.mdl').is_file():raise ValueError('Choose the extracted Vosk model folder (containing am/final.mdl).')
-            audio=AudioSettings(self.input.currentData(),self.output.currentData(),sample_rate=self.rate.currentData(),
+            whisper=self.backend.currentIndex()==1
+            if whisper and not batch:raise ValueError('Whisper is supported in full-session recording mode. Use Vosk for experimental live mode.')
+            if not (Path(model)/('model.bin' if whisper else 'am/final.mdl')).is_file():
+                raise ValueError('Choose the downloaded Whisper model folder.' if whisper else 'Choose the extracted Vosk model folder (containing am/final.mdl).')
+            detector=WhisperFileDetector(model) if whisper else VoskDetector(model)
+            audio=AudioSettings(self.input.currentData(),self.output.currentData() or 0,sample_rate=self.rate.currentData(),
                                 delay_ms=self.delay.currentData(),output_channels=self.channels.currentData())
             censor=CensorSettings(self.mode.currentText().lower(),self.frequency.value(),self.volume.value()/100,
                                    self.before.value(),self.after.value())
             dictionary=ProfanityDictionary(self.words.toPlainText().splitlines())
-            controller=LiveController(audio,VoskDetector(model),dictionary,censor)
+            recording_path=(self.root/'recordings'/f"session-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}.wav"
+                            if batch or self.record_output.isChecked() else None)
+            controller=(RecordedSession(audio,detector,dictionary,censor,recording_path) if batch else
+                        LiveController(audio,detector,dictionary,censor,recording_path=recording_path))
         except Exception as exc:
             self.status.setText('NOT STARTED');self.message.setText(str(exc));return
-        self.lock(True);self.status.setText('LOADING LOCAL MODEL…');self.last_event=0;self.events.setRowCount(0)
-        self.message.setText('Loading locally. Recognition errors can still miss words; test a local OBS recording before broadcasting.')
+        self.last_recording=self.original_recording=None
+        self.lock(True);self.status.setText('STARTING MICROPHONE…' if batch else 'LOADING LOCAL MODEL…');self.last_event=0;self.events.setRowCount(0)
+        self.notice_timer.stop();self.violation.hide()
+        if self.player:self.player.stop()
+        self.recording_status.setText('Saving full original audio locally; filtering starts after Stop.' if batch else
+                                     ('Recording protected output locally…' if recording_path else 'Recording disabled for this session.'))
+        self.message.setText('Speak normally for the full test; no special pauses are needed. This mode does not broadcast.' if batch else
+                             'Recognition errors can still miss words; test locally before broadcasting.')
         def launch():
             try:
                 controller.start();self.task_result=('started',controller)
@@ -175,22 +274,48 @@ class MainWindow(QMainWindow):
         controller=self.controller;self.controller=None
         self.stop_button.setEnabled(False);self.status.setText('STOPPING…')
         def shutdown():
-            try:controller.close();self.task_result=('stopped',None)
+            try:
+                controller.close()
+                if isinstance(controller,RecordedSession):
+                    self.task_result=('recorded',controller);return
+                recorder=getattr(controller,'recorder',None)
+                self.task_result=('stopped',{'path':recorder.path if recorder and recorder.complete else None,
+                    'error':recorder.error if recorder else None})
             except Exception as exc:self.task_result=('error',str(exc))
         self.task=threading.Thread(target=shutdown,daemon=True);self.task.start()
 
     def poll(self):
         if self.task_result is not None and self.task is not None and not self.task.is_alive():
             action,value=self.task_result;self.task_result=None;self.task=None
+            if action=='recorded':
+                self.original_recording=value.raw_path if value.recorder.complete else None
+                self.status.setText('PROCESSING FULL RECORDING…')
+                def process_session():
+                    try:self.task_result=('stopped',value.filter())
+                    except Exception as exc:self.task_result=('error',f'Filtering failed; original retained at {value.raw_path}: {exc}')
+                self.task=threading.Thread(target=process_session,daemon=True);self.task.start();return
             if action=='started':self.controller=value;self.stop_button.setEnabled(True)
             else:
+                if action=='stopped':
+                    self.last_recording=value['path']
+                    self.original_recording=value.get('original',self.original_recording)
+                    if 'detections' in value:self.metrics.setText(f"Full recording processed • {value['detections']} blocked word intervals replaced • No deadline muting")
+                    self.recording_status.setText(value['error'] or (
+                        f'Saved protected output: {self.last_recording}' if self.last_recording else 'No recording saved for this session.'))
                 self.lock(False);self.status.setText('STOPPED' if action=='stopped' else 'ERROR — OUTPUT STOPPED')
-                if value:self.message.setText(str(value))
+                if value and action=='error':
+                    self.message.setText(str(value));self.recording_status.setText('Session failed; recording may be absent or incomplete.')
             if self.closing:
                 if self.controller:self.stop()
                 else:self.close()
         if not self.controller:return
         status=self.controller.snapshot();self.status.setText(status['state'])
+        if isinstance(self.controller,RecordedSession):
+            self.metrics.setText(f"Recorded {status['recorded_seconds']:.1f} seconds • Recognition runs after Stop • No live playback")
+            if status['error']:self.message.setText(status['error']);self.stop()
+            return
+        recorder=getattr(self.controller,'recorder',None)
+        if recorder and recorder.error:self.recording_status.setText(recorder.error)
         if time.monotonic()-self.last_log_time>=1:
             self.last_log_time=time.monotonic()
             self.logger.info(json.dumps({k:v for k,v in status.items() if k!='events'}))
@@ -199,6 +324,9 @@ class MainWindow(QMainWindow):
         for event in status['events']:
             if event['id']<=self.last_event:continue
             self.last_event=event['id'];masked=masked_event(event)
+            timing='Recognition arrived late; output uses protective muting.' if event['late'] else 'Censorship scheduled for the delayed audio.'
+            self.violation.setText(f"Blocked word detected: {masked['term']} — {timing} Avoid repeating it.")
+            self.violation.show();self.notice_timer.start(10000)
             row=self.events.rowCount();self.events.insertRow(row)
             values=[time.strftime('%H:%M:%S',time.localtime(event['timestamp'])),masked['term'],
                     f"{event['confidence']:.0%}",'Late / muted' if event['late'] else f"{event['latency_ms']:.0f} ms"]
@@ -210,6 +338,7 @@ class MainWindow(QMainWindow):
             self.message.setText(status['error']);self.stop()
 
     def closeEvent(self,event):
+        if self.player:self.player.stop()
         if self.controller or self.task:
             self.closing=True;event.ignore()
             if self.controller and not self.task:self.stop()

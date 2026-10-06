@@ -11,6 +11,14 @@ from recognition mistakes.
 
 ## Launch
 
+**For the current proof of concept, use full-session recording mode:** record
+normally, Stop, wait for processing, then compare original and filtered playback.
+This preserves speech without the experimental live deadline muting. See the
+[full-session test guide](docs/FULL_SESSION_TEST.md). Local Whisper support uses
+the `whisper` extra and `tools/download_whisper_model.py`.
+
+For a complete walkthrough, see the [user guide](docs/USER_GUIDE.md).
+
 Double-click **Launch StreamGuard.cmd**. It prefers the packaged Windows app in
 `dist/StreamGuard/StreamGuard.exe` and otherwise uses the installed environment.
 Keep the entire packaged folder together. The prepared local model is
@@ -83,7 +91,9 @@ UTF-8 file with one word per line. Output must differ from the source path.
 The UI distinguishes stopped, loading, warming up, filtering, at-risk/muted and
 faults. Queue overflow, invalid coverage, device errors and detector crashes
 cannot enable raw pass-through. Stop aborts queued playback. The app never
-records microphone audio by default.
+records raw microphone audio. The desktop app can save protected output from Start
+to Stop (checkbox initially enabled) and replay the WAV after stopping. Recordings
+are local under `%LOCALAPPDATA%/StreamGuard/recordings` and remain until deleted.
 
 Settings and rotating JSON logs are under `%LOCALAPPDATA%/StreamGuard`. Terms are
 masked in GUI logs; CLI debugging can show the full detected word. Percentiles

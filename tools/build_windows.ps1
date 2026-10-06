@@ -3,7 +3,7 @@ param([string]$Python = 'python')
 $ErrorActionPreference='Stop'
 Push-Location (Join-Path $PSScriptRoot '..')
 try {
-    & $Python -m PyInstaller --noconfirm --windowed --name StreamGuard --paths src --collect-binaries vosk --collect-data vosk --collect-all _sounddevice_data --exclude-module pandas --exclude-module scipy --exclude-module matplotlib --exclude-module openpyxl --exclude-module IPython tools\desktop_entry.py
+    & $Python -m PyInstaller --noconfirm --windowed --name StreamGuard --paths src --collect-binaries vosk --collect-data vosk --collect-all faster_whisper --collect-all ctranslate2 --collect-all tokenizers --collect-all av --collect-all _sounddevice_data --exclude-module torch --exclude-module transformers --exclude-module pandas --exclude-module scipy --exclude-module matplotlib --exclude-module openpyxl --exclude-module IPython tools\desktop_entry.py
     if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
     # Qt on supported Windows 10/11 uses the OS ICU ABI. A Python environment's
     # renamed ICU exports can be collected accidentally and shadow System32.
