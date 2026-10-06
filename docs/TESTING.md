@@ -111,3 +111,9 @@ took 7.9–13.1 seconds for 2.4–4.2-second fixtures on this machine while buil
 These are small synthetic fixtures, not a human-voice accuracy benchmark. The
 installed PyAV 19 API was incompatible with faster-whisper 1.2.1; the optional
 dependency now pins PyAV below 17 and real transcription was verified with it.
+
+An actual Anker microphone capture produced 27.96 seconds of original audio and
+a filtered file of exactly the same duration, with no capture errors. No blocked
+words were detected during that hardware check. This validates full capture and
+processing, not detection accuracy for the user's voice. The packaged app also
+loaded local Whisper and transcribed a WAV successfully without network inference.
