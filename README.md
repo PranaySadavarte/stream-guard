@@ -3,38 +3,36 @@
 Windows desktop prototype that delays the audience microphone path, recognizes
 speech locally, and replaces configured word intervals with a beep or silence.
 
-**Implementation is available; production/OBS acceptance is still pending.**
-The Vosk backend can miss words, and final results can arrive after the 0.5–3
-second buffer. StreamGuard mutes audio that misses its deadline. Long sentences
-can lose surrounding speech. This MVP does not guarantee zero profanity leakage
-from recognition mistakes.
+**0.3 RC1: English desktop release candidate.** Recording and live mode now
+select compatible detectors automatically. Session switching, word-list saving,
+startup cancellation and failure recovery have automated regression coverage.
+Recognition accuracy and final OBS acceptance still depend on your own setup.
 
 ## Launch
 
-**For the current proof of concept, use full-session recording mode:** record
-normally, Stop, wait for processing, then compare original and filtered playback.
-This preserves speech without the experimental live deadline muting. See the
-[full-session test guide](docs/FULL_SESSION_TEST.md). Local Whisper support uses
-the `whisper` extra and `tools/download_whisper_model.py`.
+Double-click **Launch StreamGuard.cmd**. It opens the current package at
+`release/StreamGuard/StreamGuard.exe`, or the source environment when no current
+package exists. Reopening the launcher reveals the existing app.
 
-For a complete walkthrough, see the [user guide](docs/USER_GUIDE.md).
+- **Record full session:** choose a microphone, Start recording, speak, Stop,
+  wait for filtering, then compare **Play original** and **Play filtered**.
+- **Live protection:** select the microphone/output, use **Vosk - fast live**
+  and at least **1.25 seconds** of audience delay, then Start protection.
+- **Change words:** Stop, wait, edit one word per line, Save settings, wait for
+  validation, then Start. Unsupported English-model words are named explicitly;
+  edit them or use **Remove unsupported words**. Invalid saves retain the last
+  valid settings. Hindi/Hinglish and phrases are not supported in this release.
+- **Switch modes:** Stop and wait for processing, then change Test mode. The app
+  restores the matching model and that mode's latest playback results.
 
-Double-click **Launch StreamGuard.cmd**. It prefers the packaged Windows app in
-`dist/StreamGuard/StreamGuard.exe` and otherwise uses the installed environment.
-Keep the entire packaged folder together. The prepared local model is
-`models/vosk-model-small-en-us-0.15`.
+See the [current quick start](docs/QUICK_START.md),
+[release validation](docs/RELEASE_READINESS.md) and [user guide](docs/USER_GUIDE.md).
+The generated narrated video is `artifacts/tutorial/StreamGuard-Tutorial.mp4`.
 
-1. Choose the physical microphone, for example Anker PowerConf C300.
-2. For OBS choose **CABLE Input** as playback output. OBS captures **CABLE Output**.
-   Disable every raw microphone source in OBS.
-3. Choose the extracted Vosk model directory, configure words and beep/silence.
-4. Try 3 seconds for this model. The requested default is 1.5 seconds; shorter
-   settings can cause more protective muting.
-5. Start protection and record a local OBS test before broadcasting.
-
-Use direct hardware monitoring for the streamer, outside the delayed path.
-Speaker playback can feed back into the microphone. StreamGuard never installs
-drivers, changes Windows defaults or starts a public broadcast.
+For OBS, StreamGuard sends to **CABLE Input**; OBS captures **CABLE Output**.
+Disable raw microphone sources. Match video delay to measured audio delay and
+verify a local OBS recording before broadcasting. Use direct hardware monitoring
+for the streamer. Speakers can feed back into the microphone.
 
 ## Source installation (Windows, Python 3.11+)
 
@@ -70,7 +68,7 @@ the original word audible. Custom phrases/contextual rules are future work.
 ```powershell
 streamguard devices
 streamguard routing-check
-streamguard live --input 1 --output 5 --model models\vosk-model-small-en-us-0.15 --delay-ms 3000
+streamguard live --input 1 --output 5 --model models\vosk-model-small-en-us-0.15 --detector bounded --delay-ms 1250
 streamguard detect --input 1 --model models\vosk-model-small-en-us-0.15
 streamguard censor-file input.wav censored.wav --model models\vosk-model-small-en-us-0.15
 streamguard censor-file input.wav censored.wav --words-json words.json --mode silence
@@ -90,9 +88,9 @@ UTF-8 file with one word per line. Output must differ from the source path.
 
 The UI distinguishes stopped, loading, warming up, filtering, at-risk/muted and
 faults. Queue overflow, invalid coverage, device errors and detector crashes
-cannot enable raw pass-through. Stop aborts queued playback. The app never
-records raw microphone audio. The desktop app can save protected output from Start
-to Stop (checkbox initially enabled) and replay the WAV after stopping. Recordings
+cannot enable raw pass-through. Stop aborts queued playback. Full-session mode records raw microphone audio locally and produces a separate
+filtered file. Live mode optionally saves the protected output, including startup
+and protective silence, and can replay it after stopping. Recordings
 are local under `%LOCALAPPDATA%/StreamGuard/recordings` and remain until deleted.
 
 Settings and rotating JSON logs are under `%LOCALAPPDATA%/StreamGuard`. Terms are
