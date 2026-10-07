@@ -12,6 +12,7 @@ class RecordedSession:
         self.filtered_path=recording_path.with_name(recording_path.stem+'-filtered.wav')
         self.recorder=OutputRecorder(self.raw_path,audio.sample_rate,1,audio.block_samples)
         self.stream=None;self.frames=0;self.fault=None;self.stopped=False;self.last_callback=None
+        self.started=False
 
     def callback(self,incoming,frames,times,status):
         self.last_callback=time.monotonic()
@@ -24,6 +25,8 @@ class RecordedSession:
 
     def start(self):
         import sounddevice as sd
+        if self.started or self.stopped:raise RuntimeError('create a new controller for each session')
+        self.started=True
         try:
             sd.check_input_settings(device=self.audio.input_device,channels=1,
                                    samplerate=self.audio.sample_rate,dtype='float32')
@@ -48,12 +51,15 @@ class RecordedSession:
         try:
             if self.stream:
                 try:self.stream.stop()
-                finally:self.stream.close();self.stream=None
+                finally:
+                    try:self.stream.close()
+                    finally:self.stream=None
         finally:self.recorder.close()
 
     def filter(self):
         if self.fault or not self.recorder.complete:
             raise RuntimeError(self.fault or self.recorder.error or 'Recording is incomplete; original retained.')
+        if self.frames==0:raise RuntimeError('No audio was recorded. Start a new recording and speak before pressing Stop.')
         spans=censor_file(self.raw_path,self.filtered_path,self.dictionary,self.censor,detector=self.detector)
         self.filtered_path.with_suffix('.json').write_text(json.dumps({
             'original':str(self.raw_path),'filtered':str(self.filtered_path),

@@ -23,6 +23,7 @@ def test_ui_validates_before_start_and_restores_settings(tmp_path, monkeypatch):
     assert 'Choose a microphone' in window.message.text()
     window.restore({'delay':3000,'mode':'Silence','words':'test\nshit'})
     window.save()
+    settle(window)
     assert load_settings(tmp_path/'settings.json')['delay']==3000
     assert window.count.text()=='2 blocked terms'
     window.close()
@@ -113,7 +114,7 @@ def test_full_session_ui_records_without_output_and_filters_after_stop(tmp_path,
     monkeypatch.setattr(sounddevice,'InputStream',Stream)
     monkeypatch.setattr('streamguard.ui.main_window.VoskDetector',lambda model:Detector())
     model=tmp_path/'model'/'am';model.mkdir(parents=True);(model/'final.mdl').touch()
-    window=MainWindow(tmp_path/'state');window.input.setCurrentIndex(1);window.model.setText(str(model.parent))
+    window=MainWindow(tmp_path/'state');window.backend.setCurrentIndex(0);window.input.setCurrentIndex(1);window.model.setText(str(model.parent))
     window.words.setPlainText('banana');window.start()
     deadline=time.monotonic()+3
     while window.task and time.monotonic()<deadline:window.poll();time.sleep(.001)
@@ -128,7 +129,7 @@ def test_full_session_ui_records_without_output_and_filters_after_stop(tmp_path,
     window.close()
 
 
-def test_fast_live_rejects_batch_and_insufficient_delay_without_devices(tmp_path,monkeypatch):
+def test_fast_live_prevents_incompatible_selection_and_short_delay(tmp_path,monkeypatch):
     monkeypatch.setattr('streamguard.ui.main_window.RecordedSession',lambda *a,**k:pytest.fail('must not open devices'))
     monkeypatch.setattr('streamguard.ui.main_window.LiveController',lambda *a,**k:pytest.fail('must not open devices'))
     app=QApplication.instance() or QApplication([])
@@ -136,9 +137,16 @@ def test_fast_live_rejects_batch_and_insufficient_delay_without_devices(tmp_path
         {'id':1,'name':'Mic','host':'Test','input_channels':1,'output_channels':0},
         {'id':2,'name':'Output','host':'Test','input_channels':0,'output_channels':2}])
     window=MainWindow(tmp_path);window.input.setCurrentIndex(1);window.output.setCurrentIndex(1)
-    window.backend.setCurrentIndex(2);window.start()
-    assert 'requires Live protection' in window.message.text() and window.task is None
+    window.backend.setCurrentIndex(2)
+    assert window.backend.currentIndex() in (0,1) and window.task is None
     window.session_mode.setCurrentIndex(1)
     window.delay.setCurrentIndex(window.delay.findData(1000));window.start()
     assert 'at least 1.25' in window.message.text() and window.task is None
     window.close()
+
+
+def settle(window):
+    deadline=time.monotonic()+5
+    while window.task and time.monotonic()<deadline:
+        window.poll();time.sleep(.001)
+    assert window.task is None,'Background operation did not finish'

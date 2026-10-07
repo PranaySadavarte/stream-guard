@@ -47,8 +47,8 @@ def censor_file(source, destination, dictionary=None, settings=None, words=None,
 
 def _stream_words(audio,rate,detector):
     words = []
-    detector.start(rate)
     try:
+        detector.start(rate)
         for offset in range(0, len(audio), rate // 50):
             result = detector.process_audio(audio[offset:offset+rate//50].mean(axis=1))
             # Final results only: partial hypotheses are revised repeatedly.

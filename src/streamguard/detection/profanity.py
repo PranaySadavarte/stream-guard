@@ -12,6 +12,7 @@ def normalize(text):
 
 class ProfanityDictionary:
     def __init__(self, terms=DEFAULT_TERMS):
+        terms = tuple(terms)
         self.terms = frozenset(normalize(x) for x in terms if x.strip())
         if not self.terms or '' in self.terms:
             raise ValueError('provide at least one word containing letters or digits')

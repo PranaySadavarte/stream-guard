@@ -1,6 +1,7 @@
 # StreamGuard user guide
 
-For the latest proof of concept, follow [full-session recording](FULL_SESSION_TEST.md).
+For the current release, begin with [the switching and word-edit quick start](QUICK_START.md).
+For the complete recording workflow, follow [full-session recording](FULL_SESSION_TEST.md).
 It is the default mode and saves original audio before filtering after Stop, with
 local Whisper available. The live routing instructions below apply only to
 **Live protection (experimental)**, which still has the deadline muting limitation.
@@ -13,7 +14,7 @@ to give recognition time to work. Phone and watch notifications are future work.
 ## 1. Open the app
 
 Double-click **Launch StreamGuard.cmd** in the project folder. Keep the packaged
-`dist/StreamGuard` folder and its `_internal` folder together. Nothing is routed
+`release/StreamGuard` folder and its `_internal` folder together. Nothing is routed
 until you click **Start protection**.
 
 ## 2. Configure a local speaker test
@@ -27,7 +28,7 @@ better choice for longer testing.
 Browse to the extracted `models/vosk-model-small-en-us-0.15` folder in the project.
 Choose the folder itself, which contains `am/final.mdl`.
 
-Start with **3 seconds**, **48000 Hz**, **Stereo**, **Beep**, **1000 Hz**, **20%**,
+For **Vosk - fast live (experimental)**, start with **1.25 seconds**, **48000 Hz**, **Stereo**, **Beep**, **1000 Hz**, **20%**,
 and **150 ms** of padding before and after. The beep volume controls only the
 replacement tone, not the overall microphone or speaker volume.
 
@@ -36,7 +37,7 @@ replacement tone, not the overall microphone or speaker volume.
 The default list is already populated. Add one single word per line. For a harmless
 demonstration, append `banana`, keeping the default list. Matching ignores case
 and punctuation. Multiword phrases, contextual brand rules and arbitrary word
-variations are not supported. **Save settings** remembers your choices; settings
+variations are not supported. **Save settings** validates live-model words and remembers your choices. Unsupported words must be edited or explicitly removed before saving again; settings
 are locked during protection, so click Stop before changing them.
 
 ## 4. Try protection
@@ -85,7 +86,7 @@ Keep the app visible on a second monitor if you need to see it while streaming.
 | Refresh devices | Re-enumerate endpoints after plugging in hardware. Reselect devices. |
 | Local model / Browse | Extracted offline English recognition model folder. |
 | Detector | Current implementation uses Vosk locally. |
-| Audience delay | 0.5–3 seconds; longer gives recognition more time. |
+| Audience delay | Fast live requires at least 1.25 seconds; longer gives recognition more time. |
 | Sample rate | Must be supported by both selected devices; begin at 48 kHz. |
 | Output channels | Mono or stereo duplication of the microphone. |
 | Replacement | Beep tone or silence over detected word intervals. |
@@ -136,8 +137,8 @@ prototype for a sponsored live broadcast until the complete recording path is te
 
 If Start fails, select both devices, verify the model folder, and read the bottom
 message. If a device is unplugged, Stop, reconnect, Refresh devices, reselect and
-restart. If speech disappears, try 3 seconds and short sentences with pauses:
-Vosk final recognition can still arrive too late. Reducing delay can increase
+restart. Fast live finalizes short windows without requiring sentence pauses. If
+speech disappears, increase the buffer and inspect the error/queue metrics. Reducing delay can increase
 protective muting. If a word is missed, verify the list and test your voice;
 recognition mistakes remain possible. If feedback occurs, Stop and use headphones
 or lower the physical speaker volume.
@@ -145,7 +146,8 @@ or lower the physical speaker volume.
 ## 9. Privacy and additional tools
 
 Inference runs locally without an API key or audio upload. With the recording checkbox
-enabled, the protected output is saved locally. Raw microphone input is not recorded.
+enabled in live mode, the protected output is saved locally. Full-session recording
+saves both the raw original microphone audio and its filtered copy locally.
 Settings and rotating event logs live under
 `%LOCALAPPDATA%/StreamGuard`; event terms are masked. Explicit testing tools can
 create recordings, and command-line detection can print full terms.

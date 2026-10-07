@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import numpy as np
 from .base import Detection,Word
+from .vocabulary import validate_vocabulary
 
 # Generic conversational context keeps the keyword grammar from forcing every
 # ordinary word into either a blocked term or a single unknown token.
@@ -35,8 +36,8 @@ class BoundedVoskDetector:
         SetLogLevel(-1);self.model=Model(self.model_path);self.recognizer_type=KaldiRecognizer
         self.rate=rate;self.window=round(rate*self.window_ms/1000);self.hop=round(rate*self.hop_ms/1000)
         if self.terms is not None:
-            missing=[term for term in self.terms if hasattr(self.model,'vosk_model_find_word') and self.model.vosk_model_find_word(term)<0]
-            if missing:raise ValueError('Keywords absent from Vosk vocabulary: '+', '.join(missing))
+            if hasattr(self.model,'vosk_model_find_word'):
+                validate_vocabulary(self.model,self.terms)
             context=[word for word in CONTEXT_WORDS if not hasattr(self.model,'vosk_model_find_word') or self.model.vosk_model_find_word(word)>=0]
             self.grammar=json.dumps(sorted(set(self.terms)|set(context))+['[unk]'])
         self.active=[];self.processed=self.finalized=0;self.next_start=0

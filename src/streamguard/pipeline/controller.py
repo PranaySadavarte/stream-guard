@@ -149,14 +149,21 @@ class LiveController:
             if self.recorder:self.recorder.close()
 
     def _close_audio(self):
+        errors=[]
         if self.stream:
-            try: self.stream.abort()
+            try:self.stream.abort()
+            except Exception as exc:errors.append(exc)
             finally:
-                self.stream.close()
-                self.stream = None
+                try:self.stream.close()
+                except Exception as exc:errors.append(exc)
+                finally:self.stream=None
         if self.worker:
             self.worker.join(timeout=3)
             if self.worker.is_alive():
                 self.fault = 'Detector did not stop within 3 seconds; audio is stopped'
+                errors.append(RuntimeError(self.fault))
+            else:self.worker=None
         else:
-            self.detector.stop()
+            try:self.detector.stop()
+            except Exception as exc:errors.append(exc)
+        if errors:raise RuntimeError('; '.join(str(error) for error in errors))

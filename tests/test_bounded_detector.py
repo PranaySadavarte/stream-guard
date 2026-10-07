@@ -67,7 +67,7 @@ def test_missing_keyword_fails_before_decoding(tmp_path,monkeypatch):
     monkeypatch.setitem(sys.modules,'vosk',SimpleNamespace(Model=lambda path:model,
         KaldiRecognizer=lambda *args:pytest.fail('must not create a decoder'),SetLogLevel=lambda level:None))
     detector=BoundedVoskDetector(tmp_path,750,250,terms=['custom'])
-    with pytest.raises(ValueError,match='absent.*custom'):detector.start(16000)
+    with pytest.raises(ValueError,match='does not support: custom'):detector.start(16000)
 
 
 def test_keyword_decoder_receives_context_and_unknown_token(tmp_path,monkeypatch):
